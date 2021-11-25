@@ -17,7 +17,7 @@ fi
 
 echo "Starting detection with ${YOLOR_VERSION} at image size ${IMAGE_SIZE}"
 
-cd /yolor
+# cd /yolor
 
 # python detect.py \
 #     --source inference/images/horses.jpg \
@@ -25,8 +25,9 @@ cd /yolor
 #     --weights yolor_p6.pt
 #     --conf 0.25 --img-size 1280 --device 0
 
-python detect.py \
+python /yolor/detect.py \
     --source 0 \
+    --names /jetson-yolor/data/coco.names \
     --cfg /yolor/cfg/${YOLOR_VERSION}.cfg \
     --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \
     --conf 0.25 \
