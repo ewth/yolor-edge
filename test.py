@@ -101,22 +101,27 @@ def test(data,
         wandb_project = os.getenv('WANDB_PROJECT')
         print(f"Initialising wandb with project {wandb_project} and entity {wandb_entity}")
         if wandb_entity != None and wandb_project != None:
+            wandb_config = {
+                "batch_size": batch_size,
+                "image_size":imgsz,
+                "weights":weights,
+                "confidence_threshold":conf_thres,
+                "iou_threshold":iou_thres,
+                "model":opt.cfg,
+                "shm_size":os.getenv("SHM_SIZE"),
+                "comment":os.getenv("WANDB_COMMENT")
+            }
+                
+            print(wandb_config)
+
             wandb.init(project=os.getenv('WANDB_PROJECT'), entity=os.getenv('WANDB_ENTITY'),
-                config={
-                    "batch_size": batch_size,
-                    "image_size":imgsz,
-                    "weights":weights,
-                    "confidence_threshold":conf_thres,
-                    "iou_threshold":iou_thres,
-                    "model":opt.cfg,
-                    "shm_size":os.getenv("SHM_SIZE"),
-                    "comment":os.getenv("WANDB_COMMENT")
-                }
+                config = wandb_config
             )
             # Put the logger into warnings and above
-            import logging
-            logger = logging.getLogger("wandb")
-            logger.setLevel(logging.WARNING)
+            # Doesn't change wandb logging :(
+            # import logging
+            # logger = logging.getLogger("wandb")
+            # logger.setLevel(logging.WARNING)
     except ImportError:
         log_imgs = 0
 
