@@ -1,3 +1,8 @@
+
+# This is borrowed from the wonderful work of Wong Kin-Yiu:
+#   https://github.com/WongKinYiu/yolor
+
+
 import argparse
 import glob
 import json
@@ -60,8 +65,8 @@ def test(data,
         (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
         # Load model
-        model = Darknet(opt.cfg).to(device)
-
+        model = dnmodel = Darknet(opt.cfg).to(device)
+        dnmodel
         # load model
         try:
             ckpt = torch.load(weights[0], map_location=device)  # load checkpoint
@@ -90,6 +95,28 @@ def test(data,
     log_imgs, wandb = min(log_imgs, 100), None  # ceil
     try:
         import wandb  # Weights & Biases
+
+        # Set up wandb to log useful data
+        wandb_entity = os.getenv('WANDB_ENTITY')
+        wandb_project = os.getenv('WANDB_PROJECT')
+        print(f"Initialising wandb with project {wandb_project} and entity {wandb_entity}")
+        if wandb_entity != None and wandb_project != None:
+            wandb.init(project=os.getenv('WANDB_PROJECT'), entity=os.getenv('WANDB_ENTITY'),
+                config={
+                    "batch_size": batch_size,
+                    "image_size":imgsz,
+                    "weights":weights,
+                    "confidence_threshold":conf_thres,
+                    "iou_threshold":iou_thres,
+                    "model":opt.cfg,
+                    "shm_size":os.getenv("SHM_SIZE"),
+                    "comment":os.getenv("WANDB_COMMENT")
+                }
+            )
+            # Put the logger into warnings and above
+            import logging
+            logger = logging.getLogger("wandb")
+            logger.setLevel(logging.WARNING)
     except ImportError:
         log_imgs = 0
 
@@ -257,28 +284,37 @@ def test(data,
     # Save JSON
     if save_json and len(jdict):
         w = Path(weights[0] if isinstance(weights, list) else weights).stem if weights is not None else ''  # weights
-        anno_json = glob.glob('../coco/annotations/instances_val*.json')[0]  # annotations json
+        anno_path = '../coco/annotations'
+
+        # annotations location added to coco.yaml, read from there
+        if is_coco:
+            try:
+                anno_path = data['annotations']
+            except:
+                pass
+
+        # Instead of hard-coded path, for datasets that live elsewhere
+        # anno_json = glob.glob('../coco/annotations/instances_val*.json')[0]  # annotations json
+
+        # Although this could probably just be assumed to be 2017
+        anno_json = glob.glob(f"{anno_path}/instances_val*.json")[0]
         pred_json = str(save_dir / f"{w}_predictions.json")  # predictions json
         print('\nEvaluating pycocotools mAP... saving %s...' % pred_json)
         with open(pred_json, 'w') as f:
             json.dump(jdict, f)
 
-        try:  # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-            from pycocotools.coco import COCO
-            from pycocotools.cocoeval import COCOeval
-
-            anno = COCO(anno_json)  # init annotations api
-            pred = anno.loadRes(pred_json)  # init predictions api
-            eval = COCOeval(anno, pred, 'bbox')
-            if is_coco:
-                eval.params.imgIds = [int(Path(x).stem) for x in dataloader.dataset.img_files]  # image IDs to evaluate
-            eval.evaluate()
-            eval.accumulate()
-            eval.summarize()
-            map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
-        except Exception as e:
-            print('ERROR: pycocotools unable to run: %s' % e)
-
+        # Updated pyocotools==2.0.2 so the float conversion bug is fixed
+        from pycocotools.coco import COCO
+        from pycocotools.cocoeval import COCOeval
+        anno = COCO(anno_json)  # init annotations api
+        pred = anno.loadRes(pred_json)  # init predictions api
+        eval = COCOeval(anno, pred, 'bbox')
+        if is_coco:
+            eval.params.imgIds = [int(Path(x).stem) for x in dataloader.dataset.img_files]  # image IDs to evaluate
+        eval.evaluate()
+        eval.accumulate()
+        eval.summarize()
+        map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
     # Return results
     if not training:
         print('Results saved to %s' % save_dir)
