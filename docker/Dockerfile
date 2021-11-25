@@ -3,15 +3,6 @@ FROM nvcr.io/nvidia/l4t-pytorch:r32.5.0-pth1.7-py3
 MAINTAINER Ewan Thompson <ewanpt@gmail.com>
 # Setup files
 COPY container-files jetson-yolor
-ARG WANDB_API_KEY=""
-ARG WANDB_PROJECT=""
-ARG WANDB_ENTITY=""
-ARG WANDB_SILENT=""
-
-ENV WANDB_API_KEY ${WANDB_API_KEY}
-ENV WANDB_PROJECT ${WANDB_PROJECT}
-ENV WANDB_ENTITY ${WANDB_ENTITY}
-ENV WANDB_SILENT=${WANDB_SILENT}
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     rm -f /usr/bin/pip /usr/bin/python \
