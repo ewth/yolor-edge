@@ -64,6 +64,8 @@ def test(data,
         save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
         (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
+        run_name = save_dir.parts[-1]
+
         # Load model
         model = dnmodel = Darknet(opt.cfg).to(device)
         dnmodel
@@ -97,31 +99,27 @@ def test(data,
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
-        wandb_entity = os.getenv('WANDB_ENTITY')
-        wandb_project = os.getenv('WANDB_PROJECT')
-        print(f"Initialising wandb with project {wandb_project} and entity {wandb_entity}")
-        if wandb_entity != None and wandb_project != None:
-            wandb_config = {
+        wandb.init(
+            name = run_name,
+            tags = [opt.name, "jetson-yolor", opt.task],
+            config = {
+                "device": device,
+                "is_coco" : is_coco,
+                "num_classes": nc,
+                "log_imgs" : log_imgs,
+                "weights": weights,
+                "confidence_threshold": conf_thres,
+                "iou_threshold": iou_thres,
+                "model": opt.cfg,
+                "plots": plots,
+                "task": opt.task,
                 "batch_size": batch_size,
-                "image_size":imgsz,
-                "weights":weights,
-                "confidence_threshold":conf_thres,
-                "iou_threshold":iou_thres,
-                "model":opt.cfg,
-                "shm_size":os.getenv("SHM_SIZE"),
-                "comment":os.getenv("WANDB_COMMENT")
-            }
-                
-            print(wandb_config)
-
-            wandb.init(project=os.getenv('WANDB_PROJECT'), entity=os.getenv('WANDB_ENTITY'),
-                config = wandb_config
-            )
-            # Put the logger into warnings and above
-            # Doesn't change wandb logging :(
-            # import logging
-            # logger = logging.getLogger("wandb")
-            # logger.setLevel(logging.WARNING)
+                "image_size": imgsz,
+                "save_dir": save_dir,
+                "opt": opt,
+                "shm_size": os.getenv("SHM_SIZE"),
+                "comment": os.getenv("WANDB_COMMENT")
+        })
     except ImportError:
         log_imgs = 0
 
@@ -137,6 +135,12 @@ def test(data,
         names = model.names if hasattr(model, 'names') else model.module.names
     except:
         names = load_classes(opt.names)
+
+    names_dict = dict(enumerate(names))
+
+    if wandb:
+        wandb.log({"class_names": names})
+
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
@@ -190,14 +194,16 @@ def test(data,
                     with open(save_dir / 'labels' / (path.stem + '.txt'), 'a') as f:
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
-            # W&B logging
+            # W&B logging                
             if plots and len(wandb_images) < log_imgs:
+                # pred.tolist() becomes:
+                #   [239.5, 106.875, 257.75, 124.875, 0.490966796875, 14.0]
                 box_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
                              "class_id": int(cls),
-                             "box_caption": "%s %.3f" % (names[cls], conf),
+                             "box_caption": "%s %.3f" % (names_dict[int(cls)], conf),
                              "scores": {"class_score": conf},
                              "domain": "pixel"} for *xyxy, conf, cls in pred.tolist()]
-                boxes = {"predictions": {"box_data": box_data, "class_labels": names}}
+                boxes = {"predictions": {"box_data": box_data, "class_labels": names_dict}}
                 wandb_images.append(wandb.Image(img[si], boxes=boxes, caption=path.name))
 
             # Clip boxes to image bounds
@@ -230,7 +236,6 @@ def test(data,
                 for cls in torch.unique(tcls_tensor):
                     ti = (cls == tcls_tensor).nonzero(as_tuple=False).view(-1)  # prediction indices
                     pi = (cls == pred[:, 5]).nonzero(as_tuple=False).view(-1)  # target indices
-
                     # Search for detections
                     if pi.shape[0]:
                         # Prediction to target ious
@@ -261,16 +266,15 @@ def test(data,
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
         p, r, ap, f1, ap_class = ap_per_class(*stats, plot=plots, fname=save_dir / 'precision-recall_curve.png')
+        if wandb:
+            wandb.log({"P": p, "R": r, "AP": ap, "f1": f1, "ap_class": ap_class})
         p, r, ap50, ap = p[:, 0], r[:, 0], ap[:, 0], ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
+        if wandb:
+            wandb.log({"mP": mp, "mAP_50": map50, "mAP": map, "mR": mr})
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
     else:
         nt = torch.zeros(1)
-
-    # W&B logging
-    if plots and wandb:
-        wandb.log({"Images": wandb_images})
-        wandb.log({"Validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
@@ -283,6 +287,17 @@ def test(data,
 
     # Print speeds
     t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
+    
+    # W&B logging
+    if plots and wandb:
+        wandb.log({"Images": wandb_images})
+        wandb.log({"Validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
+
+    if wandb:
+        # wandb.log({"P": p, "R": r, "AP_50": ap50, "AP": ap,  "num_targets": nt})
+        wandb.log({"speed": [t[0],t[1],t[2]]})
+        wandb.log({"PrecisionRecall": wandb.Image(save_dir / 'precision-recall_curve.png', caption="Precision Recall Curve")})
+
     if not training:
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
@@ -319,6 +334,11 @@ def test(data,
         eval.evaluate()
         eval.accumulate()
         eval.summarize()
+        print(eval.stats)
+        print(eval)
+        # if wandb:
+        #     wandb.log({"eval": eval})
+
         map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
     # Return results
     if not training:
@@ -336,6 +356,7 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str, default='data/coco.yaml', help='*.data path')
     parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
     parser.add_argument('--img-size', type=int, default=1280, help='inference size (pixels)')
+    parser.add_argument('--log-images', type=int, default=32, help='log images')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.65, help='IOU threshold for NMS')
     parser.add_argument('--task', default='val', help="'val', 'test', 'study'")
@@ -354,7 +375,6 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     opt.save_json |= opt.data.endswith('coco.yaml')
     opt.data = check_file(opt.data)  # check file
-    print(opt)
 
     if opt.task in ['val', 'test']:  # run normally
         test(opt.data,
@@ -369,6 +389,7 @@ if __name__ == '__main__':
              opt.verbose,
              save_txt=opt.save_txt,
              save_conf=opt.save_conf,
+             log_imgs=opt.log_images
              )
 
     elif opt.task == 'study':  # run over a range of settings and save/plot
