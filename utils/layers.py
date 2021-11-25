@@ -7,7 +7,7 @@ from torch import nn
 
 try:
     from mish_cuda import MishCuda as Mish
-    
+    logging.log(logging.INFO, "mishc_cuda loaded for forward")
 except:
     class Mish(nn.Module):  # https://github.com/digantamisra98/Mish
         def forward(self, x):
@@ -25,8 +25,11 @@ try:
             b,c,w,h = x.shape
             yl, yh = self.xfm(x)
             return torch.cat([yl/2., yh[0].view(b,-1,w//2,h//2)/2.+.5], 1)
-        
+    
+    logging.log(logging.INFO, "Using pytorch_wavelets for DWT")
+
 except: # using Reorg instead
+    logging.log(logging.INFO, "Using Reorg for dwt")
     class DWT(nn.Module):
         def forward(self, x):
             return torch.cat([x[..., ::2, ::2], x[..., 1::2, ::2], x[..., ::2, 1::2], x[..., 1::2, 1::2]], 1)
@@ -66,6 +69,8 @@ class FeatureConcat(nn.Module):
         self.multiple = len(layers) > 1  # multiple layers flag
 
     def forward(self, x, outputs):
+        # Kicks out an error if not a 4:3 aspect ratio
+        # @todo: look into it
         return torch.cat([outputs[i] for i in self.layers], 1) if self.multiple else outputs[self.layers[0]]
 
 
