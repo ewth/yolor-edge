@@ -42,6 +42,9 @@ fi
 if [[ ! -z "${WANDB_ENTITY}" ]]; then
     ENV_ARGS="${ENV_ARGS} -e WANDB_ENTITY=""${WANDB_ENTITY}"""
 fi
+if [[ ! -z "${WANDB_SILENT}" ]]; then
+    ENV_ARGS="${ENV_ARGS} -e WANDB_SILENT=""${WANDB_SILENT}"""
+fi
 
 sudo docker run --runtime nvidia \
     -it --rm --security-opt  seccomp=unconfined --network host ${ADD_DISPLAY} \
