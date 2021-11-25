@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+if [[ "${SCRIPT_DIR}" != $(echo pwd) ]]; then
+    echo "Please run the script from the directory ${SCRIPT_DIR}"
+    exit
+fi
+if [[ ! -f "${SCRIPT_DIR}/Dockerfile" ]]; then
+    echo "No Dockerfile found."
+    exit
+fi
 
 TORCHV_WHL=torchvision-0.8.1-cp36-cp36m-linux_aarch64.whl
 
