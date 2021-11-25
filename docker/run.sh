@@ -7,7 +7,8 @@ SHM_SIZE=4gb
 # Bit hacky... better way?
 URBASE=$(dirname $(dirname ${SCRIPT_DIR}))
 RESOURCES=${URBASE}/resources
-JETSON_YOLOR=$(dirname ${SCRIPT_DIR})
+JETSON_YOLOR=${URBASE}/jetson-yolor
+CONTAINER=${SCRIPT_DIR}/container-files
 YOLOR=${URBASE}/yolor
 
 V4L2_DEVICES=" "
