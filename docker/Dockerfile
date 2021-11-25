@@ -1,9 +1,7 @@
 # syntax = docker/dockerfile:1.3
 FROM nvcr.io/nvidia/l4t-pytorch:r32.5.0-pth1.7-py3
-MAINTAINER Ewan Thompson <ewanpt@gmail.com>
-# Setup files
+MAINTAINER Ewan Thompson <contact@ewan.me>
 COPY container-files jetson-yolor
-
 RUN --mount=type=cache,target=/root/.cache/pip \
     rm -f /usr/bin/pip /usr/bin/python \
     && cp /usr/bin/pip3 /usr/bin/pip \
@@ -13,12 +11,3 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     && pip3 install /jetson-yolor/torchvision-0.8.1-cp36-cp36m-linux_aarch64.whl \
     && rm -rf /jetson-yolor \
     && echo "Build time: $(date)" > /build-time
-
-# Note: add the following to RUN to install mish-cuda:
-#   && cd / && git clone https://github.com/JunnYu/mish-cuda && cd mish-cuda && python3 setup.py build install && cd / \
-
-# RUN git clone https://github.com/WongKinYiu/yolor /yolor \
-#     && rm -f /yolor/test.py \ 
-#     && rm -f /yolor/requirements.txt \
-#     && ln -s /jetson-yolor/yolor/test.py /yolor/test.py \
-#     && ln -s /jetson-yolor/yolor/requirements.txt /yolor/requirements.txt
