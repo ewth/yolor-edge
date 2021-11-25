@@ -16,7 +16,8 @@ if [[ -z "${IMAGE_SIZE}" ]]; then
 fi
 
 if [[ -z "${YOLOR_VERSION}" ]]; then
-    YOLOR_VERSION=yolor_p6
+    echo "No model specified."
+    exit
 fi
 
 echo "Starting ${YOLOR_VERSION} with batch size ${BATCH_SIZE}, image size ${IMAGE_SIZE}"
@@ -31,7 +32,7 @@ fi
 cd /yolor
 
 WANDB_PROJECT="jetson-yolor" WANDB_ENTITY="ewth" SHM_SIZE=${SHM_SIZE} python3 test.py \
-    --data /jetson-yolor/yolor/coco.yaml \
+    --data /jetson-yolor/data/coco.yaml \
     --img ${IMAGE_SIZE} --batch ${BATCH_SIZE} --conf 0.001 --iou 0.65 --device 0 \
     --cfg /yolor/cfg/${YOLOR_VERSION}.cfg \
     --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \

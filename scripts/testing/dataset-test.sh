@@ -26,7 +26,7 @@ cd /yolor
 #     --conf 0.25 --img-size 1280 --device 0
 
 python detect.py \
-    --source /resources/sdvd.avi \
+    --source /resources/sources/sdvd_v1.avi \
     --cfg /yolor/cfg/${YOLOR_VERSION}.cfg \
     --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \
     --conf 0.25 \
