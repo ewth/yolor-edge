@@ -12,7 +12,7 @@ if [[ -z "${YOLOR_VERSION}" ]]; then
 fi
 
 if [[ -z "${IMAGE_SIZE}" ]]; then
-    IMAGE_SIZE=1280
+    IMAGE_SIZE=960
 fi
 
 echo "Starting detection with ${YOLOR_VERSION} at image size ${IMAGE_SIZE}"
@@ -26,11 +26,12 @@ echo "Starting detection with ${YOLOR_VERSION} at image size ${IMAGE_SIZE}"
 #     --conf 0.25 --img-size 1280 --device 0
 
 python /yolor/detect.py \
-    --source 0 \
+    --source /resources/sources/sdvd_v1.avi \
     --names /jetson-yolor/data/coco.names \
     --cfg /yolor/cfg/${YOLOR_VERSION}.cfg \
     --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \
     --conf 0.25 \
+    --class 0 \
     --img-size ${IMAGE_SIZE} \
     --device 0
 
