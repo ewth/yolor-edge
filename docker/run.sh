@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-SHM_SIZE=4gb
+SHM_SIZE=8gb
 IMAGE=deep-usar/jetson-yolor:version0.1
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
