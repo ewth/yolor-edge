@@ -9,10 +9,10 @@
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 if [[ -z "${BATCH_SIZE}" ]]; then
-    BATCH_SIZE=20
+    BATCH_SIZE=40
 fi
 if [[ -z "${IMAGE_SIZE}" ]]; then
-    IMAGE_SIZE=256
+    IMAGE_SIZE=128
 fi
 
 if [[ -z "${YOLOR_VERSION}" ]]; then
@@ -22,16 +22,22 @@ fi
 echo "Starting validation of ${YOLOR_VERSION} with batch size ${BATCH_SIZE}, image size ${IMAGE_SIZE}"
 
 # This is just read to pass to wandb
-EXTRA_CMD=""
-READ_SHM=$(cat /proc/mounts | grep "/dev/shm")
-READ_SHM=$(echo "$READ_SHM" | grep -P 'size=([0-9]+[a-zA-Z])' -o)
-SHM_SIZE=$(echo "$READ_SHM" | grep -P '([0-9]+[a-zA-Z])' -o)
-if [[ !$SHM_SIZE =~ [0-9]+[a-zA-Z] ]]; then
+SHM_SIZE=$(cat /proc/mounts | grep "/dev/shm" | grep -Po 'size=([0-9]+[a-zA-Z])' | grep -Po '([0-9]+[a-zA-Z])')
+if [[ ! $SHM_SIZE =~ [0-9]+[a-zA-Z] ]]; then
     SHM_SIZE=""
+else
+    SHM_FACT=${SHM_SIZE: -1}
+    SHM_DIV=1
+    SHM_ADD=""
+    if [ "${SHM_FACT,,}" == "k" ]; then
+        # kbytes
+        SHM_DIV=1024
+    fi
+    SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-
 SHM_SIZE=${SHM_SIZE} python3 /yolor/test.py \
+    --verbose \
     --data /jetson-yolor/data/coco.yaml \
     --names /jetson-yolor/data/coco.names \
     --img ${IMAGE_SIZE} --batch ${BATCH_SIZE} --conf 0.001 --iou 0.65 --device 0 \
