@@ -115,11 +115,11 @@ def test(data,
                 "task": opt.task,
                 "batch_size": batch_size,
                 "image_size": imgsz,
-                "save_dir": save_dir,
                 "opt": opt,
                 "shm_size": os.getenv("SHM_SIZE"),
                 "comment": os.getenv("WANDB_COMMENT")
         })
+        wandb.watch(model)
     except ImportError:
         log_imgs = 0
 
@@ -140,6 +140,8 @@ def test(data,
 
     if wandb:
         wandb.log({"class_names": names})
+
+    summary_stats = {}
 
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
@@ -257,7 +259,7 @@ def test(data,
 
         # Plot images
         if plots and batch_i < 3:
-            f = save_dir / f'test_batch{batch_i}_labels.jpg'  # filename
+            f = save_dir / f't  est_batch{batch_i}_labels.jpg'  # filename
             plot_images(img, targets, paths, f, names)  # labels
             f = save_dir / f'test_batch{batch_i}_pred.jpg'
             plot_images(img, output_to_target(output, width, height), paths, f, names)  # predictions
@@ -270,11 +272,14 @@ def test(data,
             wandb.log({"P": p, "R": r, "AP": ap, "f1": f1, "ap_class": ap_class})
         p, r, ap50, ap = p[:, 0], r[:, 0], ap[:, 0], ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
-        if wandb:
-            wandb.log({"mP": mp, "mAP_50": map50, "mAP": map, "mR": mr})
+        #if wandb:
+            # wandb.log({"mP": mp, "mAP_50": map50, "mAP": map, "mR": mr})
+        summary_stats = {"mP": mp, "mAP_50": map50, "mAP": map, "mR": mr}
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
     else:
         nt = torch.zeros(1)
+
+    summary_stats["nt"] = nt
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
@@ -288,6 +293,12 @@ def test(data,
     # Print speeds
     t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
     
+
+    if not training:
+        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
+        summary_stats["speed"] = [round(t[0], 4), round(t[1], 4), round(t[2], 4)]
+        
+
     # W&B logging
     if plots and wandb:
         wandb.log({"Images": wandb_images})
@@ -295,14 +306,12 @@ def test(data,
 
     if wandb:
         # wandb.log({"P": p, "R": r, "AP_50": ap50, "AP": ap,  "num_targets": nt})
-        wandb.log({"speed": [t[0],t[1],t[2]]})
-        wandb.log({"PrecisionRecall": wandb.Image(save_dir / 'precision-recall_curve.png', caption="Precision Recall Curve")})
+        #wandb.log({"speed": [t[0],t[1],t[2]]})
+        wandb.log({"PrecisionRecall": wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")})
 
-    if not training:
-        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # Save JSON
-    if save_json and len(jdict):
+    if len(jdict):
         w = Path(weights[0] if isinstance(weights, list) else weights).stem if weights is not None else ''  # weights
         anno_path = '../coco/annotations'
 
@@ -319,9 +328,10 @@ def test(data,
         # Although this could probably just be assumed to be 2017
         anno_json = glob.glob(f"{anno_path}/instances_val*.json")[0]
         pred_json = str(save_dir / f"{w}_predictions.json")  # predictions json
-        print('\nEvaluating pycocotools mAP... saving %s...' % pred_json)
-        with open(pred_json, 'w') as f:
-            json.dump(jdict, f)
+        if save_json:
+            print('\nEvaluating pycocotools mAP... saving %s...' % pred_json)
+            with open(pred_json, 'w') as f:
+                json.dump(jdict, f)
 
         # Updated pyocotools==2.0.2 so the float conversion bug is fixed
         from pycocotools.coco import COCO
@@ -334,12 +344,12 @@ def test(data,
         eval.evaluate()
         eval.accumulate()
         eval.summarize()
-        print(eval.stats)
-        print(eval)
-        # if wandb:
-        #     wandb.log({"eval": eval})
+        if wandb:
+            wandb.log({"stats": eval.stats})
 
         map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
+    if wandb:
+            wandb.log({"Summary" : summary_stats})
     # Return results
     if not training:
         print('Results saved to %s' % save_dir)
