@@ -1,6 +1,6 @@
 # jetson-yolor
 
-This forms part of a larger project, [Deep USAR](https://github.com/ewth/deep-usar), examining how artificial intelligence can assist in urban search and rescue situations.
+This forms part of a larger project, [DeepRescue](https://github.com/ewth/DeepRescue), examining how artificial intelligence can assist in urban search and rescue situations.
 This particular aspect of the project focuses on running YOLOR on an [NVIDIA Jetson Xavier NX](https://developer.nvidia.com/embedded/jetson-xavier-nx-devkit), evaluating its suitability for locating people using computer vision in collapsed building disasters. Being signficantly cluttered, dynamic and unpredictable environments with highly variable lighting, such disaster sites have historically proven difficult for autonomous robotics to operate in.
 
 ## YOLOR
