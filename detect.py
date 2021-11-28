@@ -39,6 +39,9 @@ def detect(save_img=False):
     os.makedirs(out)  # make new output folder
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
+    # Stream output rather than saving
+    stream = opt.stream
+    
     # Load model
     model = Darknet(cfg, imgsz).cuda()
     model.load_state_dict(torch.load(weights[0], map_location=device)['model'])
@@ -59,6 +62,7 @@ def detect(save_img=False):
     vid_path, vid_writer = None, None
     if webcam:
         view_img = True
+        # Believe this is where FPS information comes from
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz)
     else:
@@ -68,6 +72,8 @@ def detect(save_img=False):
     # Get names and colors
     names = load_classes(names)
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
+    # might be better to use one colour regardless of class
+    # colors = [[0, 255, 0]]
 
     # Run inference
     t0 = time.time()
@@ -120,17 +126,30 @@ def detect(save_img=False):
                             f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
 
                     if save_img or view_img:  # Add bbox to image
-                        label = '%s %.2f' % (names[int(cls)], conf)
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        # Changing image labelling to suit project
+                        font_scale=0.5
+                        outline_scale=1
+                        # cv2.rectangle(im0, (0,0), (100,45), (255,255,255), -1, cv2.LINE_4)  # filled
+                        # rather than a rectangle, let's put an outline on the text
+                        label = "it: %.0fms" % ((t2-t1)*1000)
+                        cv2.putText(im0, label, (0, 20), 0, font_scale*outline_scale, [255,255,255], thickness=2, lineType=cv2.LINE_4)
+                        cv2.putText(im0, label, (0, 20), 0, font_scale, [0,0,0], thickness=1, lineType=cv2.LINE_4)
+                        
+                        label = "Human {conf100:.0f}%".format(name=names[int(cls)], conf100=conf*100)
+                        # cv2.putText(im0, label, (-1, 39), 0, font_scale*outline_scale, [255,255,255], thickness=1, lineType=cv2.LINE_4)
+                        # cv2.putText(im0, label, (0, 40), 0, font_scale, [0,0,0], thickness=1, lineType=cv2.LINE_4)
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2, text_color=[0,0,0], line_type=cv2.LINE_4)
+
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
 
             # Stream results
             if view_img:
-                cv2.imshow(p, im0)
-                if cv2.waitKey(1) == ord('q'):  # q to quit
-                    raise StopIteration
+                # todo: stream to network
+                cv2.imshow('Detection', im0)
+                # if cv2.waitKey(1) == ord('q'):  # q to quit
+                    # raise StopIteration
 
             # Save results (image with detections)
             if save_img:
@@ -149,6 +168,7 @@ def detect(save_img=False):
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
                     vid_writer.write(im0)
 
+    cv2.destroyAllWindows()
     if save_txt or save_img:
         print('Results saved to %s' % Path(out))
         if platform == 'darwin' and not opt.update:  # MacOS
@@ -174,6 +194,8 @@ if __name__ == '__main__':
     parser.add_argument('--update', action='store_true', help='update all models')
     parser.add_argument('--cfg', type=str, default='cfg/yolor_p6.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/coco.names', help='*.cfg path')
+    # Added for DeepRescue
+    parser.add_argument('--stream', action='store_true', help='Stream result instead of saving')
     opt = parser.parse_args()
     print(opt)
 
