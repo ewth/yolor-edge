@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-IMAGE_TAG:deep-usar/jetson-yolor:latest
+IMAGE_TAG:deeprescue/jetson-yolor:latest
 TORCHV_WHL=torchvision-0.8.1-cp36-cp36m-linux_aarch64.whl
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"

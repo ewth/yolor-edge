@@ -2,16 +2,16 @@
 
 
 SHM_SIZE=8gb
-IMAGE=deep-usar/jetson-yolor:version0.1
+IMAGE=ewth/DeepRescue:latest
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # Bit hacky... better way?
-URBASE=$(dirname $(dirname ${SCRIPT_DIR}))
-RESOURCES=${URBASE}/resources
-JETSON_YOLOR=${URBASE}/jetson-yolor
+DRBASE=$(dirname $(dirname ${SCRIPT_DIR}))
+RESOURCES=${DRBASE}/resources
+JETSON_YOLOR=${DRBASE}/jetson-yolor
 CONTAINER=${SCRIPT_DIR}/container-files
-YOLOR=${URBASE}/yolor
+YOLOR=${DRBASE}/yolor
 WANDB_DIR=${RESOURCES}/wandb/jetson-yolor
 
 # Cheers Dusty!
