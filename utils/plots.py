@@ -68,6 +68,20 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None, text_color
         cv2.rectangle(img, c1, c2, color, -1, line_type)  # filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, text_color, thickness=tf, lineType=line_type)
 
+def plot_text_with_border(
+    coord,
+    img,
+    label = "",
+    text_colour = (255,255,255),
+    border_color=(0,0,0),
+    line_type=cv2.LINE_4,
+    font_scale = 0.5,
+    text_thickness = 2,
+    border_thickness = 3
+):
+    cv2.putText(img, label, coord, 0, font_scale, border_color, thickness=border_thickness, lineType=line_type)
+    cv2.putText(img, label, coord, 0, font_scale, text_colour, thickness=text_thickness, lineType=line_type)
+
 
 def plot_wh_methods():  # from utils.general import *; plot_wh_methods()
     # Compares the two methods for width-height anchor multiplication
