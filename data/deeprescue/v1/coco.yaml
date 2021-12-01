@@ -1,0 +1,6 @@
+names:
+- person
+
+nc: 1
+
+val: /resources/datasets/deeprescue/v1/labels/val.txt
