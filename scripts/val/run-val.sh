@@ -3,23 +3,42 @@
 ##
 # This script is meant to invoke training with some paramaters attached to allow easy logging (via wandb).
 # Mainly just metadata to help with comparing tests etc later.
+# Should only be run inside Docker!
 ##
 
 # Thanks https://stackoverflow.com/questions/59895/
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-if [[ -z "${BATCH_SIZE}" ]]; then
-    BATCH_SIZE=40
-fi
-if [[ -z "${IMAGE_SIZE}" ]]; then
-    IMAGE_SIZE=128
+SINGLE_CLS=""
+
+if [[ ! -z "${DEEPRESCUE}" ]]; then
+    YOLOR_NAMES="/yolor-edge/data/deeprescue/coco.names"
+    YOLOR_DATA="/yolor-edge/data/deeprescue/coco.yaml"
+    SINGLE_CLS="--single-class"
 fi
 
+if [[ ! -z "${BATCH_SIZE}" ]]; then
+    BATCH_SIZE="--batch-size ${BATCH_SIZE}"
+fi
+if [[ ! -z "${IMAGE_SIZE}" ]]; then
+    IMAGE_SIZE="--img-sz ${IMAGE_SIZE}"
+fi
+if [[ ! -z "${YOLOR_DATA}" ]]; then
+    YOLOR_DATA="--data ${YOLOR_DATA}"
+fi
+if [[ ! -z "${YOLOR_NAMES}" ]]; then
+    YOLOR_NAMES="--names ${YOLOR_NAMES}"
+fi
 if [[ -z "${YOLOR_VERSION}" ]]; then
     YOLOR_VERSION=yolor_p6
 fi
 
-echo "Starting validation of ${YOLOR_VERSION} with batch size ${BATCH_SIZE}, image size ${IMAGE_SIZE}"
+
+if [[ ! -z "${DEEPRESCUE}" ]]; then
+    echo "Starting validation of ${YOLOR_VERSION} on deeprescue data"
+else
+    echo "Starting validation of ${YOLOR_VERSION} on COCO-2017 data"
+fi
 
 # This is just read to pass to wandb
 SHM_SIZE=$(cat /proc/mounts | grep "/dev/shm" | grep -Po 'size=([0-9]+[a-zA-Z])' | grep -Po '([0-9]+[a-zA-Z])')
@@ -37,11 +56,8 @@ else
 fi
 
 SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
-    --verbose \
-    --data /yolor-edge/data/coco.yaml \
-    --names /yolor-edge/data/coco.names \
-    --img-sz ${IMAGE_SIZE} --batch ${BATCH_SIZE} --conf 0.001 --iou 0.65 --device 0 \
+    ${IMAGE_SIZE} ${BATCH_SIZE} ${YOLOR_DATA} ${YOLOR_NAMES} ${SINGLE_CLS} --verbose \
+    --is-coco \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_VERSION}.cfg \
     --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \
-    --project /resources/runs/yolor/test \
     --name ${YOLOR_VERSION}_val
