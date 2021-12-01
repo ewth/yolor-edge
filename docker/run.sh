@@ -2,17 +2,16 @@
 
 
 SHM_SIZE=8gb
-IMAGE=ewth/DeepRescue:latest
+IMAGE=ewth/yolor-edge:latest
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # Bit hacky... better way?
 DRBASE=$(dirname $(dirname ${SCRIPT_DIR}))
 RESOURCES=${DRBASE}/resources
-JETSON_YOLOR=${DRBASE}/jetson-yolor
+YOLOR_EDGE=${DRBASE}/yolor-edge
 CONTAINER=${SCRIPT_DIR}/container-files
-YOLOR=${DRBASE}/yolor
-WANDB_DIR=${RESOURCES}/wandb/jetson-yolor
+WANDB_DIR=${RESOURCES}/wandb/yolor-edge
 
 # Cheers Dusty!
 V4L2_DEVICES=""
@@ -54,7 +53,6 @@ sudo docker run --runtime nvidia \
     -v ${WANDB_DIR}:/wandb \
     -e WANDB_DIR="/wandb" ${ENV_ARGS} \
     -v ${RESOURCES}:/resources \
-    -v ${CONTAINER}:/jetson-yolor \
-    -v ${YOLOR}:/yolor \
+    -v ${YOLOR_EDGE}:/yolor-edge \
     --shm-size=${SHM_SIZE} \
     ${V4L2_DEVICES} ${IMAGE}
