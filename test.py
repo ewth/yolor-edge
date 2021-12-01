@@ -48,7 +48,8 @@ def test(data,
          save_txt=False,  # for auto-labelling
          save_conf=False,
          plots=True,
-         log_imgs=0):  # number of logged images
+         log_imgs=0,
+         is_coco = False):  # number of logged images
 
     # Initialize/load model and set device
     training = model is not None
@@ -85,7 +86,9 @@ def test(data,
 
     # Configure
     model.eval()
-    is_coco = data.endswith('coco.yaml')  # is COCO dataset
+    if not is_coco and data.endswith('coco.yaml'):
+        is_coco = True
+
     with open(data) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)  # model dict
     check_dataset(data)  # check
@@ -94,11 +97,11 @@ def test(data,
     niou = iouv.numel()
 
     # Logging
-    log_imgs = min(log_imgs, 100)
-    wandb = None  # ceil
+    log_imgs = min(log_imgs, 100) # ceil
+    wandb = None 
     try:
         # @todo: re-enable
-        raise Exception("Disabling wandb for a minute")
+        raise ImportError("Disabling wandb for a minute")
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
@@ -108,17 +111,17 @@ def test(data,
             config = {
                 "device": device,
                 "is_coco" : is_coco,
+                "single_cls": single_cls,
                 "num_classes": nc,
                 "log_imgs" : log_imgs,
                 "weights": weights,
-                "confidence_threshold": conf_thres,
-                "iou_threshold": iou_thres,
+                "conf_thres": conf_thres,
+                "iou_thres": iou_thres,
                 "model": opt.cfg,
                 "plots": plots,
                 "task": opt.task,
                 "batch_size": batch_size,
                 "image_size": imgsz,
-                "opt": opt,
                 "shm_size": os.getenv("SHM_SIZE"),
                 "comment": os.getenv("WANDB_COMMENT")
         })
@@ -368,8 +371,9 @@ if __name__ == '__main__':
     parser.add_argument('--weights', nargs='+', type=str, default='yolor_p6.pt', help='model.pt path(s)')
     parser.add_argument('--data', type=str, default='/yolor-edge/data/coco-2017/coco.yaml', help='*.data path')
     parser.add_argument('--names', type=str, default='/yolor-edge/data/coco-2017/coco.names', help='*.cfg path')
+    parser.add_argument('--is-coco', action='store_true', help='Indicate using COCO data')
     parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
-    parser.add_argument('--img-size', type=int, default=1280, help='inference size (pixels)')
+    parser.add_argument('--img-size', type=int, default=128, help='inference size (pixels)')
     parser.add_argument('--log-images', type=int, default=32, help='log images')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.65, help='IOU threshold for NMS')
@@ -391,20 +395,22 @@ if __name__ == '__main__':
     opt.data = check_file(opt.data)  # check file
 
     if opt.task in ['val', 'test']:  # run normally
-        test(opt.data,
-             opt.weights,
-             opt.batch_size,
-             opt.img_size,
-             opt.conf_thres,
-             opt.iou_thres,
-             opt.save_json,
-             opt.single_cls,
-             opt.augment,
-             opt.verbose,
-             save_txt=opt.save_txt,
-             save_conf=opt.save_conf,
-             log_imgs=opt.log_images
-             )
+        test(
+            data = opt.data,
+            weights = opt.weights,
+            batch_size = opt.batch_size,
+            imgsz = opt.img_size,
+            conf_thres = opt.conf_thres,
+            iou_thres = opt.iou_thres,
+            save_json = opt.save_json,
+            single_cls = opt.single_cls,
+            augment = opt.augment,
+            verbose = opt.verbose,
+            save_txt = opt.save_txt,
+            save_conf = opt.save_conf,
+            log_imgs = opt.log_images,
+            is_coco = opt.is_coco
+        )
 
     elif opt.task == 'study':  # run over a range of settings and save/plot
         for weights in ['yolor_p6.pt', 'yolor_w6.pt']:
