@@ -32,82 +32,10 @@ def load_classes(path):
         names = f.read().split('\n')
     return list(filter(None, names))  # filter removes empty strings (such as last line)
 
-# Setting up in global scope for now
-# @todo: better
-stat_labels = {
-    "mp": "mP",
-    "map50": "mAP@0.5",
-    "map": "mAP@0.5:0.95",
-    "mr": "mR",
-    "p": "P",
-    "r": "R",
-    "f1": "F1",
-    "mf1": "mF1",
-    "ap_class": "AP_class",
-    "ap": "AP@0.5:0.95",
-    "aps": "APs",
-    "maps": "mAPs",
-    "ap50": "AP@0.5",
-    "sum_ar": "AR",
-    "sum_ap": "AP",
-    "speed": "speed",
-    "summary": "summary",
-    "eval": "evaluation",
-    "nt": "nt",
-    "loss": "loss",
-    "seen": "seen"
-}
-
-
-# Easier for keeping track of stats
-# @todo: depth, e.g. summary, depth
-def update_stats(run_stats, labels, values):
-    if not labels or len(labels) < 1:
-        return run_stats
-
-    if type(labels) == str:
-        run_stats[labels] = values
-        return run_stats
-
-    if not len(labels) == len(values):
-        print(labels)
-        print(values)
-        raise Exception("Non matching labels and values lengths")
-
-    for i in range(0, len(labels)-1):
-        run_stats[labels[i]] = values[i]
-
-    return run_stats
-
-# Base stats dict
-# on second though, not going to use stat labels here - can be used to process data if necessarily
-def base_stats() -> dict:
-    base_stats = {
-        "mr": -1,
-        "map": -1,
-        "map50": -1,
-        "mp": -1,
-        "mf1": -1,
-        "ap_class": -1,
-        "r": [],
-        "p": [],
-        "seen": -1,
-        "speed": [-1,-1,-1],
-        "loss": -1,
-        "eval": {
-            "map": -1,
-            "map50": -1
-        },
-        "summary": {
-            "ar": [],
-            "ap": []
-        },
-        "run_loss": [],
-    }
-    return base_stats
-
+# Generate summary stats performance table
 # @todo: a nicer way to achieve this?
 def summary_stats(raw_stats):
+    # these are based on what COCOeval() spits out
     ious = [
         "0.50:0.95","0.50","0.75","0.50:0.95","0.50:0.95","0.50:0.95",
         "0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95",
@@ -127,7 +55,8 @@ def summary_stats(raw_stats):
         "ar","ar","ar","ar","ar","ar",
     ]
 
-    return [[iou,area,max_det,metric,result] for (iou,area,max_det,metric,result) in zip(ious,areas,max_dets,metrics,raw_stats)]
+    # columns: ["metric","IoU","area","maxDets","result"]
+    return [[metric,iou,area,max_det,result] for (iou,area,max_det,metric,result) in zip(ious,areas,max_dets,metrics,raw_stats)]
 
 
 def test(data,
@@ -348,7 +277,7 @@ def test(data,
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
             # W&B logging                
-            if plots and len(wandb_images) < log_imgs:
+            if len(wandb_images) < log_imgs:
                 # pred.tolist() becomes:
                 #   [239.5, 106.875, 257.75, 124.875, 0.490966796875, 14.0]
                 box_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
@@ -525,8 +454,7 @@ def test(data,
             table = wandb.Table(columns=["metric","IoU","area","maxDets","result"], data=summary_stats(eval.stats))
             wandb.log({"performance_table": table})
             coco_eval_time = coco_eval_time.total_seconds()
-            wandb.log({"eval": { "map": map, "map50": map50 }})
-            wandb.log({"eval_stats": dict(enumerate(eval.stats))})
+            wandb.log({"eval": { "map": map, "map50": map50, "stats": eval.stats }})
             
     t_sec_end = datetime.now()
     if wandb:
