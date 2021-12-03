@@ -108,7 +108,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, fname='precision-re
         fig.tight_layout()
         fig.savefig(fname, dpi=200)
 
-    return p, r, ap, f1, unique_classes.astype('int32')
+    return p, r, ap, f1, unique_classes.astype('int32'), px, py
 
 
 def compute_ap(recall, precision):
