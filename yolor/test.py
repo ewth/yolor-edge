@@ -192,7 +192,11 @@ def test(data,
         data = yaml.load(f, Loader=yaml.FullLoader)  # model dict
 
     check_dataset(data)  # check
+
+    
     nc = 1 if single_cls else int(data['nc'])  # number of classes
+
+    # @todo: look into iouv, niou
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
 
@@ -219,12 +223,14 @@ def test(data,
         "shm_size": os.getenv("SHM_SIZE"),
         "z": {
             "verbose": opt.verbose,
+            "log_imgs": log_imgs,
             "save_txt": opt.save_txt,
             "save_conf": opt.save_conf,
             "save_json": opt.save_json,
             "project": opt.project,
             "name": opt.name,
-            "model": model,
+            # @todo: find a more useful way to log model data
+            # "model": model,
         },
     }
 
@@ -261,14 +267,13 @@ def test(data,
         dataloader = create_dataloader(path, imgsz, batch_size, 64, opt, pad=0.5, rect=True)[0]
 
     seen = 0
+    # Work out names
     try:
         names = model.names if hasattr(model, 'names') else model.module.names
     except:
         names = load_classes(opt.names)
-
+    # Needs to be a dict
     names_dict = dict(enumerate(names))
-
-    run_stats = base_stats()
 
     if wandb:
         wandb.config.update({"z.class_count": len(names)})
@@ -290,6 +295,9 @@ def test(data,
         pass
 
 
+    t_sec_start = datetime.now()
+
+    # Run inference
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -407,7 +415,14 @@ def test(data,
             f = save_dir / f'test_batch{batch_i}_pred.jpg'
             plot_images(img, output_to_target(output, width, height), paths, f, names)  # predictions
 
+    t_sec_end = datetime.now()
+    
+    if wandb:
+        inf_time = (t_sec_end - t_sec_start).total_seconds()
+        wandb.log({"time.inference": inf_time})
+    
     # Compute statistics
+    t_sec_start = datetime.now()
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
         # ap_per_class(): return p, r, ap, f1, unique_classes.astype('int32')
@@ -416,38 +431,23 @@ def test(data,
         # @todo: Plot P and R
         if wandb:
             pass
-            # table_data = [[x,y] for (x,y) in zip(range(len(raw_stats)-1), raw_stats)]
-            # steps = [x for x in range(0,len(p)-1)]
-            # data = [
-            #     [[x,y] for (x,y) in zip(steps,p)],
-            #     [[x,y] for (x,y) in zip(steps,r)]
-            # ]
-            # table = wandb.Table(columns=['Precision','Recall'], data=data)
-            # wandb.log({"p_vs_r": table})
-            # table = wandb.Table(data = [])
-            # wandb.log({"p_vs_r": wandb.plot.line()})
+            # table_data = [[x,y] for (x,y) in zip(p,r)]
+            # table = wandb.Table()
 
         p, r, ap50, ap = p[:, 0], r[:, 0], ap[:, 0], ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
         mf1 = f1.mean()
-        #if wandb:
-            # wandb.log({"mP": mp, "mAP_50": map50, "mAP": map, "mR": mr})
-        # validation_stats = {"mP": mp, "mAP@50": map50, "mAP@50-95": map, "mR": mr}
-        # these_labels = ['mp','map50','map','mr','ap']
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
     else:
         nt = torch.zeros(1)
 
-    # run_stats = update_stats(run_stats,
-    #     ['mp','map50','mr', 'mf1', 'nt',   'seen', 'ap_class', 'p', 'r', 'run_loss'],
-    #     [mp,   map50,  mr,   mf1, nt.sum(), seen,   ap_class,   p,   r,   run_loss]
-    # )
+    t_sec_end = datetime.now()
 
     if wandb:
-        stat_labels = ['mp','map50','mr', 'mf1', 'nt',   'seen', 'ap_class', 'p', 'r', 'run_loss']
-        stat_values = [mp,   map50,  mr,   mf1, nt.sum(), seen,   ap_class,   p,   r,   run_loss]
+        stat_labels = ['mp','map50','mr', 'mf1', 'nt',   'seen', 'p', 'r', 'run_loss']
+        stat_values = [mp,   map50,  mr,   mf1, nt.sum(), seen,  p,   r,   run_loss]
         wandb.log({"stats": dict(zip(stat_labels,stat_values))})
-
+        wandb.log({"time.stats": (t_sec_end-t_sec_start).total_seconds()})
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
@@ -458,11 +458,14 @@ def test(data,
         for i, c in enumerate(ap_class):
             print(pf % (names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]))
 
-    # Print speeds
     t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
     if wandb:
-        wandb.log({"speeds": t[0:3]})
+        speeds = [round(x,5) for x in t[0:3]]
+        wandb.log({"speed": {"inference": speeds[0], "nms": speeds[1], "total": speeds[2]} })
+        # These are included in config but logging again incase changed
+        wandb.log({"image_size": imgsz, "batch_size": batch_size})
 
+    # Print speeds
     if not training:
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
@@ -470,8 +473,10 @@ def test(data,
     if plots and wandb:
         wandb.log({"images": wandb_images})
         wandb.log({"validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
+        # @todo: don't log pvr in wandb after started logging via data
         wandb.log({"precision_vs_recall": wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")})
 
+    t_sec_start = datetime.now()
     # Save JSON
     if len(jdict):
         w = Path(weights[0] if isinstance(weights, list) else weights).stem if weights is not None else ''  # weights
@@ -509,6 +514,8 @@ def test(data,
         eval.accumulate()
         eval.summarize()
 
+        map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
+
         # @todo: try this out
         # print(eval.params)
 
@@ -518,8 +525,13 @@ def test(data,
             table = wandb.Table(columns=["metric","IoU","area","maxDets","result"], data=summary_stats(eval.stats))
             wandb.log({"performance_table": table})
             coco_eval_time = coco_eval_time.total_seconds()
-            wandb.log({"coco_eval": { "map": map, "map50": map50, "time": coco_eval_time }})
+            wandb.log({"eval": { "map": map, "map50": map50 }})
+            wandb.log({"eval_stats": dict(enumerate(eval.stats))})
             
+    t_sec_end = datetime.now()
+    if wandb:
+        wandb.log({"time.eval": (t_sec_end-t_sec_start).total_seconds()})
+
     # Return results
     if not training:
         print('Results saved to %s' % save_dir)
@@ -532,7 +544,7 @@ def test(data,
         wandb.log({"maps": maps})
         t_run_time = datetime.now() - t_very_start
         t_run_time = t_run_time.total_seconds()
-        wandb.log({"total_time" : t_run_time})
+        wandb.log({"time.total" : t_run_time})
 
     return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
 
