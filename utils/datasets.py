@@ -282,7 +282,8 @@ class LoadWebcam:  # for inference
 
 
 class LoadStreams:  # multiple IP or RTSP cameras
-    def __init__(self, sources='streams.txt', img_size=640):
+    def __init__(self, sources='streams.txt', img_size=640, nth_frame=4):
+        self.nth_frame = nth_frame
         self.mode = 'images'
         self.img_size = img_size
 
@@ -322,7 +323,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
             n += 1
             # _, self.imgs[index] = cap.read()
             cap.grab()
-            if n == 4:  # read every 4th frame
+            if n == self.nth_frame: # read every nth frame
                 _, self.imgs[index] = cap.retrieve()
                 n = 0
             time.sleep(0.01)  # wait time
