@@ -4,6 +4,7 @@
 
 
 import argparse
+from datetime import datetime
 import glob
 import json
 import os
@@ -30,8 +31,6 @@ def load_classes(path):
     with open(path, 'r') as f:
         names = f.read().split('\n')
     return list(filter(None, names))  # filter removes empty strings (such as last line)
-
-
 
 # Setting up in global scope for now
 # @todo: better
@@ -62,21 +61,23 @@ stat_labels = {
 
 # Easier for keeping track of stats
 # @todo: depth, e.g. summary, depth
-def update_stats(labels, values):
-    if not labels or not values:
-        return
+def update_stats(run_stats, labels, values):
+    if not labels or len(labels) < 1:
+        return run_stats
 
     if type(labels) == str:
         run_stats[labels] = values
+        return run_stats
 
     if not len(labels) == len(values):
         print(labels)
         print(values)
         raise Exception("Non matching labels and values lengths")
 
-    for [k,v] in labels:
-        run_stats[v] = values[k]
+    for i in range(0, len(labels)-1):
+        run_stats[labels[i]] = values[i]
 
+    return run_stats
 
 # Base stats dict
 # on second though, not going to use stat labels here - can be used to process data if necessarily
@@ -105,118 +106,29 @@ def base_stats() -> dict:
     }
     return base_stats
 
-def summary_stats(raw_stats) -> dict:
 # @todo: a nicer way to achieve this?
-    avgp = [
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'all',
-            'maxDets': 100,
-            'value': raw_stats[0]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'small',
-            'maxDets': 100,
-            'value': raw_stats[3]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'medium',
-            'maxDets': 100,
-            'value': raw_stats[4]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'large',
-            'maxDets': 100,
-            'value': raw_stats[5]
-        },
-        {
-            'iou': '0.5',
-            'iou_l': 0.5,
-            'iou_u': 0.5,
-            'area': 'all',
-            'maxDets': 100,
-            'value': raw_stats[1]
-        },
-        {
-            'iou': '0.75',
-            'iou_l': 0.75,
-            'iou_u': 0.75,
-            'area': 'all',
-            'maxDets': 100,
-            'value': raw_stats[2]
-        }
+def summary_stats(raw_stats):
+    ious = [
+        "0.50:0.95","0.50","0.75","0.50:0.95","0.50:0.95","0.50:0.95",
+        "0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95",
     ]
-    
-    avgr = [
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'all',
-            'maxDets': 1,
-            'value': raw_stats[6]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'all',
-            'maxDets': 10,
-            'value': raw_stats[7]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'all',
-            'maxDets': 100,
-            'value': raw_stats[8]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'small',
-            'maxDets': 100,
-            'value': raw_stats[9]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'medium',
-            'maxDets': 100,
-            'value': raw_stats[10]
-        },
-        {
-            'iou': '0.50:0.95',
-            'iou_l': 0.5,
-            'iou_u': 0.95,
-            'area': 'large',
-            'maxDets': 100,
-            'value': raw_stats[11]
-        },
+    areas = [
+        "all","all","all","small","medium","large",
+        "all","all","all","small","medium","large"
     ]
-    
-    return {
-        stat_labels['sum_ap']: avgp,
-        stat_labels['sum_ar']: avgr
-    }
 
+    max_dets = [
+        100,100,100,100,100,100,
+        1,10,100,100,100,100,
+    ]
 
-# @todo: not global?
-run_stats = base_stats()
+    metrics = [
+        "ap","ap","ap","ap","ap","ap",
+        "ar","ar","ar","ar","ar","ar",
+    ]
+
+    return [[iou,area,max_det,metric,result] for (iou,area,max_det,metric,result) in zip(ious,areas,max_dets,metrics,raw_stats)]
+
 
 def test(data,
          weights=None,
@@ -236,6 +148,8 @@ def test(data,
          plots=True,
          log_imgs=0,
          is_coco = False):  # number of logged images
+
+    t_very_start = datetime.now()
 
     # Initialize/load model and set device
     training = model is not None
@@ -284,6 +198,8 @@ def test(data,
 
     # Logging
     log_imgs = min(log_imgs, 100) # ceil
+
+    # Setup run config for wandb
     run_config = {
         "data_file": opt.data,
         "names_file": opt.names,
@@ -295,26 +211,34 @@ def test(data,
         "single_cls": single_cls,
         "conf_thres": conf_thres,
         "iou_thres": iou_thres,
-        "model_info": model.info(True),
         "task": opt.task,
         "batch_size": batch_size,
         "image_size": imgsz,
         "training": training,
         "augment": opt.augment,
-        "other": {
-            "shm_size": os.getenv("SHM_SIZE"),
+        "shm_size": os.getenv("SHM_SIZE"),
+        "z": {
             "verbose": opt.verbose,
             "save_txt": opt.save_txt,
             "save_conf": opt.save_conf,
             "save_json": opt.save_json,
             "project": opt.project,
-            "name": opt.name
-        }
+            "name": opt.name,
+            "model": model,
+        },
     }
+
+
+    # Get jetson_clocks
+    jcfile = "/resources/yolor_edge_jetson_clocks.out"
+    if os.path.isfile(jcfile):
+        f = open(jcfile, 'r')
+        jetson_clocks = f.read()
+        f.close()
+        run_config["z"]["jetson_clocks"] = jetson_clocks
 
     wandb = None 
     try:
-        # @todo: re-enable
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
@@ -326,7 +250,6 @@ def test(data,
             tags = tags,
             config = run_config
             )
-        wandb.watch(model)
     except ImportError:
         log_imgs = 0
 
@@ -345,17 +268,28 @@ def test(data,
 
     names_dict = dict(enumerate(names))
 
-    if wandb:
-        wandb.log({"class_names": names})
-
     run_stats = base_stats()
-    run_loss = []
+
+    if wandb:
+        wandb.config.update({"z.class_count": len(names)})
+        # @todo: Logging this seems pointless now but it can be turned back on
+        # wandb.config.update({"z.class_names": names})
+        pass
+
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     mf1 = 0.
     loss = torch.zeros(3, device=device)
+    run_loss = [loss]
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
+
+    if wandb:
+        # @todo: turn this on and see how it goes
+        # wandb.watch(model, log_freq=100)
+        pass
+
+
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -479,7 +413,19 @@ def test(data,
         # ap_per_class(): return p, r, ap, f1, unique_classes.astype('int32')
         p, r, ap, f1, ap_class = ap_per_class(*stats, plot=plots, fname=save_dir / 'precision-recall_curve.png')
         
-        # @todo: should ap_class and ap be plotted against each other maybe?
+        # @todo: Plot P and R
+        if wandb:
+            pass
+            # table_data = [[x,y] for (x,y) in zip(range(len(raw_stats)-1), raw_stats)]
+            # steps = [x for x in range(0,len(p)-1)]
+            # data = [
+            #     [[x,y] for (x,y) in zip(steps,p)],
+            #     [[x,y] for (x,y) in zip(steps,r)]
+            # ]
+            # table = wandb.Table(columns=['Precision','Recall'], data=data)
+            # wandb.log({"p_vs_r": table})
+            # table = wandb.Table(data = [])
+            # wandb.log({"p_vs_r": wandb.plot.line()})
 
         p, r, ap50, ap = p[:, 0], r[:, 0], ap[:, 0], ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
@@ -492,9 +438,16 @@ def test(data,
     else:
         nt = torch.zeros(1)
 
-    update_stats( \
-        ['mp','map50','mr', 'mf1', 'nt',   'seen', 'ap_class', 'p', 'r', 'run_loss'], \
-        [mp,   map50,  mr,   mf1, nt.sum(), seen,   ap_class,   p,   r,   run_loss])
+    # run_stats = update_stats(run_stats,
+    #     ['mp','map50','mr', 'mf1', 'nt',   'seen', 'ap_class', 'p', 'r', 'run_loss'],
+    #     [mp,   map50,  mr,   mf1, nt.sum(), seen,   ap_class,   p,   r,   run_loss]
+    # )
+
+    if wandb:
+        stat_labels = ['mp','map50','mr', 'mf1', 'nt',   'seen', 'ap_class', 'p', 'r', 'run_loss']
+        stat_values = [mp,   map50,  mr,   mf1, nt.sum(), seen,   ap_class,   p,   r,   run_loss]
+        wandb.log({"stats": dict(zip(stat_labels,stat_values))})
+
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
@@ -507,16 +460,17 @@ def test(data,
 
     # Print speeds
     t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
-    update_stats("speed", t)
+    if wandb:
+        wandb.log({"speeds": t[0:3]})
 
     if not training:
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # W&B logging
     if plots and wandb:
-        wandb.log({"Images": wandb_images})
-        wandb.log({"Validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
-        wandb.log({"PrecisionRecall": wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")})
+        wandb.log({"images": wandb_images})
+        wandb.log({"validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
+        wandb.log({"precision_vs_recall": wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")})
 
     # Save JSON
     if len(jdict):
@@ -540,9 +494,12 @@ def test(data,
                 with open(pred_json, 'w') as f:
                     json.dump(jdict, f)
 
+
         # Updated pyocotools==2.0.2 so the float conversion bug is fixed
         from pycocotools.coco import COCO
         from pycocotools.cocoeval import COCOeval
+
+        coco_eval_start = datetime.now()
         anno = COCO(anno_json)  # init annotations api
         pred = anno.loadRes(pred_json)  # init predictions api
         eval = COCOeval(anno, pred, 'bbox')
@@ -551,15 +508,18 @@ def test(data,
         eval.evaluate()
         eval.accumulate()
         eval.summarize()
-        raw_stats = eval.stats
 
-        map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
-        # run_stats['stats'] = { "ap":avgp, "ar": avgr, "mAP@0.5:0.95": map, "mAP@0.5": map50}
-        # @todo: update_stats to handle depth
-        sum_stats = summary_stats(raw_stats)
-        eval_stats = { 'map': map, 'map50': map50 }
-        update_stats(['summary', 'eval'], [sum_stats, eval_stats])
+        # @todo: try this out
+        # print(eval.params)
 
+        coco_eval_time = datetime.now() - coco_eval_start
+
+        if wandb:
+            table = wandb.Table(columns=["metric","IoU","area","maxDets","result"], data=summary_stats(eval.stats))
+            wandb.log({"performance_table": table})
+            coco_eval_time = coco_eval_time.total_seconds()
+            wandb.log({"coco_eval": { "map": map, "map50": map50, "time": coco_eval_time }})
+            
     # Return results
     if not training:
         print('Results saved to %s' % save_dir)
@@ -568,12 +528,11 @@ def test(data,
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
 
-    update_stats('maps', maps)
-
     if wandb:
-        wandb.log({"run_stats" : run_stats})
-
-
+        wandb.log({"maps": maps})
+        t_run_time = datetime.now() - t_very_start
+        t_run_time = t_run_time.total_seconds()
+        wandb.log({"total_time" : t_run_time})
 
     return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
 
@@ -606,7 +565,7 @@ if __name__ == '__main__':
     is_coco = opt.is_coco
     if not is_coco and opt.data.endswith('coco.yaml'):
         is_coco = True
-        
+
     opt.save_json |= is_coco
     opt.data = check_file(opt.data)  # check file
 
