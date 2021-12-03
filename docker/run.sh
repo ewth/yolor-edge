@@ -54,5 +54,6 @@ sudo docker run --runtime nvidia \
     -e WANDB_DIR="/wandb" ${ENV_ARGS} \
     -v ${RESOURCES}:/resources \
     -v ${YOLOR_EDGE}:/yolor-edge \
+    -v ${DRBASE}/.git/modules/yolor-edge:/.git/modules/yolor-edge \
     --shm-size=${SHM_SIZE} \
     ${V4L2_DEVICES} ${IMAGE}
