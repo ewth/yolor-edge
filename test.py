@@ -14,9 +14,9 @@ import torch
 import yaml
 from tqdm import tqdm
 
-from utils.google_utils import attempt_load
 from utils.datasets import create_dataloader
-from utils.general import coco80_to_coco91_class, check_dataset, check_file, check_img_size, box_iou, \
+from utils.general import \
+    coco80_to_coco91_class, check_dataset, check_file, check_img_size, box_iou, \
     non_max_suppression, scale_coords, xyxy2xywh, xywh2xyxy, clip_coords, set_logging, increment_path
 from utils.loss import compute_loss
 from utils.metrics import ap_per_class
@@ -91,6 +91,7 @@ def test(data,
 
     with open(data) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)  # model dict
+
     check_dataset(data)  # check
     nc = 1 if single_cls else int(data['nc'])  # number of classes
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
@@ -100,15 +101,7 @@ def test(data,
     log_imgs = min(log_imgs, 100) # ceil
     wandb = None 
     try:
-        # @todo: re-enable
-        raise ImportError("Disabling wandb for a minute")
-        import wandb  # Weights & Biases
-
-        # Set up wandb to log useful data
-        wandb.init(
-            name = run_name,
-            tags = [opt.name, "jetson-yolor", opt.task],
-            config = {
+        run_config = {
                 "device": device,
                 "is_coco" : is_coco,
                 "single_cls": single_cls,
@@ -124,7 +117,21 @@ def test(data,
                 "image_size": imgsz,
                 "shm_size": os.getenv("SHM_SIZE"),
                 "comment": os.getenv("WANDB_COMMENT")
-        })
+        }
+
+        # @todo: re-enable
+        raise ImportError("Disabling wandb for a minute")
+        import wandb  # Weights & Biases
+
+        # Set up wandb to log useful data
+        tags = [opt.name, "yolor-edge", opt.task]
+        if not os.getenv("WANDB_TAGS") == "":
+            tags = tags + os.getenv("WANDB_TAGS").split(',')
+        wandb.init(
+            name = run_name,
+            tags = tags,
+            config = run_config
+            )
         wandb.watch(model)
     except ImportError:
         log_imgs = 0
@@ -172,6 +179,8 @@ def test(data,
             # Compute loss
             if training:  # if model has loss hyperparameters
                 loss += compute_loss([x.float() for x in train_out], targets, model)[1][:3]  # box, obj, cls
+                if wandb:
+                    wandb.log({"loss": loss})
 
             # Run NMS
             t = time_synchronized()
@@ -322,22 +331,21 @@ def test(data,
         anno_path = '../coco/annotations'
 
         # annotations location added to coco.yaml, read from there
-        if is_coco:
-            try:
-                anno_path = data['annotations']
-            except:
-                pass
+        try:
+            anno_path = data['annotations']
+        except:
+            anno_path = '../coco/annotations'
 
-        # Instead of hard-coded path, for datasets that live elsewhere
-        # anno_json = glob.glob('../coco/annotations/instances_val*.json')[0]  # annotations json
-
-        # Although this could probably just be assumed to be 2017
-        anno_json = glob.glob(f"{anno_path}/instances_val*.json")[0]
-        pred_json = str(save_dir / f"{w}_predictions.json")  # predictions json
-        if save_json:
-            print('\nEvaluating pycocotools mAP... saving %s...' % pred_json)
-            with open(pred_json, 'w') as f:
-                json.dump(jdict, f)
+        anno_glob = f"{anno_path}/instances_val*.json"
+        anno_glob = glob.glob(anno_glob)
+        anno_json = ''
+        if len(anno_glob) > 0:
+            anno_json = anno_glob[0]
+            pred_json = str(save_dir / f"{w}_predictions.json")  # predictions json
+            if save_json:
+                print('\nEvaluating pycocotools mAP... saving %s...' % pred_json)
+                with open(pred_json, 'w') as f:
+                    json.dump(jdict, f)
 
         # Updated pyocotools==2.0.2 so the float conversion bug is fixed
         from pycocotools.coco import COCO
@@ -350,6 +358,7 @@ def test(data,
         eval.evaluate()
         eval.accumulate()
         eval.summarize()
+        print(eval.stats)
         if wandb:
             wandb.log({"stats": eval.stats})
 
