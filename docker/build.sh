@@ -18,8 +18,19 @@ if [ -f ${TORCHV_WHL} ]; then
     exit
 fi
 
+REQ_PATH="../yolor/requirements.txt"
+if [ ! -f "${REQ_PATH}" ]; then
+    echo "${REQ_PATH} not found"
+    exit
+fi
+
 sudo docker pull nvcr.io/nvidia/l4t-pytorch:r32.5.0-pth1.7-py3
 
+cp ${REQ_PATH} ./requirements.txt
 sudo DOCKER_BUILDKIT=1 docker build \
     --progress plain \
     -t ${IMAGE_TAG} .
+
+rm ./requirements.txt
+
+echo "Build complete"
