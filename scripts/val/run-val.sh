@@ -14,6 +14,8 @@ DATASET="COCO-2017"
 TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
 TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
 
+EXTRA_ARGS=""
+
 if [[ ! -z "${DEEPRESCUE}" ]]; then
     if [[ "${DEEPRESCUE}" == "1" ]]; then
         TEST_NAMES="/resources/datasets/deeprescue/v1/deeprescue.names"
@@ -50,6 +52,7 @@ if [[ ! -z "${EXTRA_ARGS}" ]]; then
 fi
 
 # This is just read to pass to wandb
+# @todo: add this to a py param or something nicer; it's for logging
 SHM_SIZE=$(cat /proc/mounts | grep "/dev/shm" | grep -Po 'size=([0-9]+[a-zA-Z])' | grep -Po '([0-9]+[a-zA-Z])')
 if [[ ! $SHM_SIZE =~ [0-9]+[a-zA-Z] ]]; then
     SHM_SIZE="-1"
@@ -64,20 +67,24 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-    # parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    # parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-    # parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
-
+QUICK_RUN=1
 # Quick run
+if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
+    echo " quick run"
+    SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
+        --img-size 64 --batch-size 64 \
+        --single-cls ${EXTRA_ARGS} \
+        --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
+        --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
+        --name ${YOLOR_CFG}_val
+    exit
+fi
+
+
+# Normal run
 SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
-    --single-cls ${EXTRA_ARGS} \
+    ${EXTRA_ARGS} --verbose \
+    --save-txt --save-conf --save-json \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
     --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
     --name ${YOLOR_CFG}_val
-
-# SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
-#     ${EXTRA_ARGS} --verbose \
-#     --save-txt --save-conf --save-json \
-#     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
-#     --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
-#     --name ${YOLOR_CFG}_val
