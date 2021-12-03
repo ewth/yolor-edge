@@ -1,6 +1,5 @@
 import argparse
 import os
-from pickle import FALSE
 import platform
 import shutil
 import time
@@ -30,16 +29,29 @@ def load_classes(path):
         names = f.read().split('\n')
     return list(filter(None, names))  # filter removes empty strings (such as last line)
 
+def display(text: str, ignore_verbose = False):
+    if not ignore_verbose and not opt.verbose:
+        return
+    print(text)
+
 def detect(save_img=False):
     out, source, weights, view_img, save_txt, imgsz, cfg, names = \
         opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.cfg, opt.names
     webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
+    verbose = opt.verbose
+
+    if verbose:
+        display("Running detection in verbose mode")
+
     # Setup output paths
     if opt.append_date:
         start_time = datetime.now().strftime(r"%Y%m%d%H%M%S")
         out = str(Path(out).joinpath(start_time))
+        display(f"Outputting to {out}")
+        
     if not os.path.exists(out):
+        display(f"Creating path {out}")
         Path(out).mkdir(parents=True, exist_ok=True)  # make new output folder
     #    shutil.rmtree(out)  # delete output folder
 
@@ -48,15 +60,21 @@ def detect(save_img=False):
     if webcam:
         view_img = True
         save_path = str(Path(out).joinpath('webcam_output.mp4'))
+        display("Using webcam as source")
     else:
         save_img = True
         save_path = str(Path(out))
         if save_vid:
             source_path = str(Path(source)).replace('/resources/sources/','').replace('/','_')
             save_path = str(Path(out).joinpath(source_path)) + '.mp4'
+            display(f"Saving video to path {save_path}")
+        else:
+            display(f"Saving images to path {save_path}")
+
 
     # Initialise
     device = select_device(opt.device)
+    display(f"Using device {opt.device}, type {device.type}")
 
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
@@ -68,11 +86,13 @@ def detect(save_img=False):
     model.to(device).eval()
     if half:
         model.half()  # to FP16
+        display("Using half")
 
     # Second-stage classifier
     # @todo: look into this
     classify = False
     if classify:
+        display("Using second-stage classifier")
         modelc = load_classifier(name='resnet101', n=2)  # initialize
         modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
         modelc.to(device).eval()
@@ -82,11 +102,12 @@ def detect(save_img=False):
     if webcam:
         view_img = True
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz)
+        dataset = LoadStreams(source, img_size=imgsz, nth_frame=opt.nth_frame)
     else:
         dataset = LoadImages(source, img_size=imgsz, auto_size=64)
 
     if opt.headless:
+        display("Running in headless mode")
         view_img = False
 
     # Get names and colors
@@ -116,6 +137,7 @@ def detect(save_img=False):
     t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
+    display("Beginning inference...")
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -169,7 +191,8 @@ def detect(save_img=False):
                 # for c in det[:, -1].unique():
                 #     n = (det[:, -1] == c).sum()  # detections per class
                 #     detect_count += n
-                print("%d detections in %.3fs" % (detect_count, inference_time))
+                if verbose:
+                    display("%d detections in %.3fs" % (detect_count, inference_time))
                 # Write results
                 for *xyxy, conf, cls in det:
                     stats_detections += 1
@@ -179,6 +202,8 @@ def detect(save_img=False):
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
 
+                    if cls == 0:
+                        human_detections += 1
                     if show_details and (save_img or view_img):  # Add bbox to image
                         # label = "Human {conf100:.0f}%".format(name=names[int(cls)], conf100=conf*100)
                         # c1, c2 = (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3])
@@ -186,15 +211,14 @@ def detect(save_img=False):
                         # x, y = int(c1[0] + (c2[0] - c1[0])/2), int(c1[1] + (c2[1] - c1[1])/2)
                         # cv2.putText(im0, label, (int(x), int(y)), 0, 1 / 3, (0,255,0), thickness=1, lineType=line_type)
                         if cls == 0:
-                            human_detections += 1
                             label = "Human ({:.2f}%)".format((conf * 100))
                         else:
                             label = '%s %.2f' % (names[int(cls)], conf)
                         # plot_text_with_border((x,y), im0, label, (0,255,0))
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2, text_color=[0,0,0])
             else:
-                print("No detections")
-
+                if verbose:
+                    print("No detections")
 
             # Print summary stats on image
             if save_img or view_img:
@@ -278,6 +302,8 @@ if __name__ == '__main__':
     parser.add_argument('--headless', action='store_true', help='Running in headless mode')
     parser.add_argument('--append-date', action='store_true', help='Append date time string to output path')
     parser.add_argument('--save-as-video', action='store_true', help='Save images as video (if in images mode)')
+    parser.add_argument('--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('--nth-frame', type=int, default=4, help='Nth frame to capture from webcam source')
     opt = parser.parse_args()
 
     with torch.no_grad():
