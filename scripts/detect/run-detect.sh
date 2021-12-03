@@ -15,7 +15,7 @@ fi
 # Valid widths include: 1280, 1024, 768, 512, 256
 
 if [[ -z "${IMAGE_SIZE}" ]]; then
-    IMAGE_SIZE=512
+    IMAGE_SIZE=256
 fi
 
 if [[ -z "${CLASS}" ]]; then
@@ -23,13 +23,16 @@ if [[ -z "${CLASS}" ]]; then
     CLASS=0
 fi
 
+SOURCE=0
+# SOURCE="/resources/"
+
 echo "Starting detection with ${YOLOR_VERSION} at image size ${IMAGE_SIZE}"
 
 
-python /yolor/detect.py \
-    --source 0 --conf 0.75 --device 0 \
-    --names /jetson-yolor/data/coco.names \
+python /yolor-edge/yolor/detect.py \
+    --source ${SOURCE} --conf 0.75 --device 0 \
+    --names /yolor-edge/data/coco-2017/coco.names \
     --output /resources/inference/yolor/output \
-    --cfg /yolor/cfg/${YOLOR_VERSION}.cfg \
+    --cfg /yolor-edge/yolor/cfg/${YOLOR_VERSION}.cfg \
     --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \
-    --class ${CLASS} --img-size ${IMAGE_SIZE}
+    --class ${CLASS} --img-size ${IMAGE_SIZE} --details
