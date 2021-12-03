@@ -178,7 +178,19 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
             for j, box in enumerate(boxes.T):
                 cls = int(classes[j])
                 color = colors[cls % len(colors)]
-                cls = names[cls] if names else cls
+
+                try:
+                    if names and cls < len(names):
+                        cls = names[cls]
+                except:
+                    print("\n\n\n\n\n")
+                    print(f"Cls is {cls}")
+                    print("classes:")
+                    print(classes)
+                    print("names:")
+                    print(names)
+                    print("\n\n\n\n\n")
+                    raise Exception("Something went wrong")
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
                     plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
