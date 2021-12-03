@@ -206,7 +206,7 @@ def test(data,
 
     if wandb:
         wandb.config.update({"z.class_count": len(names)})
-        # @todo: Logging this seems pointless now but it can be turned back on
+        # Logging this seems pointless now but it can be turned back on
         # wandb.config.update({"z.class_names": names})
         pass
 
@@ -354,19 +354,35 @@ def test(data,
     t_sec_start = datetime.now()
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
-        # ap_per_class(): return p, r, ap, f1, unique_classes.astype('int32')
-        p, r, ap, f1, ap_class = ap_per_class(*stats, plot=plots, fname=save_dir / 'precision-recall_curve.png')
+        # ap_per_class(): return p, r, ap, f1, unique_classes.astype('int32'), px, py
+        p, r, ap, f1, ap_class, px, py = ap_per_class(*stats, plot=plots, fname=save_dir / 'precision-recall_curve.png')
         
         # @todo: Plot P and R
         if wandb:
-            pass
-            # table_data = [[x,y] for (x,y) in zip(p,r)]
-            # table = wandb.Table()
+            # table_data = [[x,y] for (x,y) in zip(px,py)]
+            # table = wandb.Table(columns=["precision","recall"], data=table_data)
+            # wandb.log({"precision_recall": wandb.plot.scatter(table, "Precision", "Recall", title="Precision vs Recall")})
+            wandb.log({"stats1": {
+                "p": p,
+                "r": r,
+                "ap": ap,
+                "f1": f1
+            }})
 
         p, r, ap50, ap = p[:, 0], r[:, 0], ap[:, 0], ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
         mf1 = f1.mean()
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
+
+        if wandb:
+            wandb.log({"stats2": {
+                "p": p,
+                "r": r,
+                "ap": ap,
+                "ap50": ap50,
+                "nt": nt
+            }})
+
     else:
         nt = torch.zeros(1)
 
