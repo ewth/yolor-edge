@@ -89,6 +89,7 @@ def test(data,
     if not is_coco and data.endswith('coco.yaml'):
         is_coco = True
 
+    data_file = data
     with open(data) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)  # model dict
 
@@ -102,31 +103,27 @@ def test(data,
     wandb = None 
     try:
         run_config = {
+                "data_file": data_file,
                 "device": device,
-                "is_coco" : is_coco,
                 "single_cls": single_cls,
                 "num_classes": nc,
-                "log_imgs" : log_imgs,
                 "weights": weights,
                 "conf_thres": conf_thres,
                 "iou_thres": iou_thres,
                 "model": opt.cfg,
-                "plots": plots,
                 "task": opt.task,
                 "batch_size": batch_size,
                 "image_size": imgsz,
-                "shm_size": os.getenv("SHM_SIZE"),
-                "comment": os.getenv("WANDB_COMMENT")
+                "shm_size": os.getenv("SHM_SIZE")
         }
 
         # @todo: re-enable
-        raise ImportError("Disabling wandb for a minute")
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
-        tags = [opt.name, "yolor-edge", opt.task]
-        if not os.getenv("WANDB_TAGS") == "":
-            tags = tags + os.getenv("WANDB_TAGS").split(',')
+        tags = [opt.name, "yolor-edge", opt.task, Path(data_file).name]
+        if not os.getenv("WANDB_TAGS") == None:
+            tags = tags + str(os.getenv("WANDB_TAGS")).split(',')
         wandb.init(
             name = run_name,
             tags = tags,
