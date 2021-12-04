@@ -220,7 +220,7 @@ def test(data,
 
     if wandb:
         # @todo: turn this on and see how it goes
-        # wandb.watch(model, log_freq=100)
+        wandb.watch(model, log_freq=100)
         pass
 
 
@@ -366,7 +366,8 @@ def test(data,
                 "p": p,
                 "r": r,
                 "ap": ap,
-                "f1": f1
+                "f1": f1,
+                "ap_class": ap_class
             }})
 
         p, r, ap50, ap = p[:, 0], r[:, 0], ap[:, 0], ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
