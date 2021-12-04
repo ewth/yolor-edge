@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 ##
 # This script is meant to invoke training with some paramaters attached to allow easy logging (via wandb).
@@ -45,6 +45,10 @@ if [[ -z "${YOLOR_CFG}" ]]; then
     YOLOR_CFG=yolor_p6
 fi
 
+if [[ -z "${PROJECT_NAME}" ]]; then
+    PROJECT_NAME="${YOLOR_CFG}_val"
+fi
+
 
 echo "Starting validation run of ${YOLOR_CFG} on ${DATASET} data"
 if [[ ! -z "${EXTRA_ARGS}" ]]; then
@@ -67,7 +71,22 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-QUICK_RUN=1
+QUICK_RUN=0
+if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
+    PROJECT_NAME="${PROJECT_NAME}_quick"
+fi
+
+# Although useful, tegrastats has to run outside the container at the minute
+# BENCHMARK=0
+# if [[ -z "${BENCHMARK}" && ${BENCHMARK} == "1" ]]; then
+#     DATE=$(date +"%F %T")
+#     OUTFILE=$(date +"%s")
+#     mkdir -p /resources/logs
+#     OUTFILE="/resources/logs/tegra_${PROJECT_NAME}_${OUTFILE}.log"
+#     echo "# Start: ${DATE}" > ${OUTFILE}
+#     tegrastats --interval 2000 --logfile ${OUTFILE} &
+# fi
+
 # Quick run
 if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
     echo " quick run"
@@ -76,7 +95,7 @@ if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
         --single-cls ${EXTRA_ARGS} \
         --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
         --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
-        --name ${YOLOR_CFG}_val
+        --name ${PROJECT_NAME}
     exit
 fi
 
@@ -87,4 +106,4 @@ SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
     --save-txt --save-conf --save-json \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
     --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
-    --name ${YOLOR_CFG}_val
+    --name ${PROJECT_NAME}
