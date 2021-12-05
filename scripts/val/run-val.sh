@@ -44,11 +44,12 @@ fi
 if [[ -z "${YOLOR_CFG}" ]]; then
     YOLOR_CFG=yolor_p6
 fi
-
 if [[ -z "${PROJECT_NAME}" ]]; then
     PROJECT_NAME="${YOLOR_CFG}_val"
 fi
-
+if [[ ! -z "${WANDB_TAGS}" ]]; then
+    EXTRA_ARGS="${EXTRA_ARGS} WANDB_TAGS=${WANDB_TAGS}"
+fi
 
 echo "Starting validation run of ${YOLOR_CFG} on ${DATASET} data"
 if [[ ! -z "${EXTRA_ARGS}" ]]; then
