@@ -47,8 +47,9 @@ fi
 if [[ -z "${PROJECT_NAME}" ]]; then
     PROJECT_NAME="${YOLOR_CFG}_val"
 fi
+ADD_FRONT=""
 if [[ ! -z "${WANDB_TAGS}" ]]; then
-    EXTRA_ARGS="${EXTRA_ARGS} WANDB_TAGS=${WANDB_TAGS}"
+    ADD_FRONT="${EXTRA_ARGS} WANDB_TAGS=${WANDB_TAGS} "
 fi
 
 echo "Starting validation run of ${YOLOR_CFG} on ${DATASET} data"
@@ -91,7 +92,7 @@ fi
 # Quick run
 if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
     echo " quick run"
-    SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
+    ${ADD_FRONT}SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
         --img-size 64 --batch-size 64 \
         --single-cls ${EXTRA_ARGS} \
         --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
