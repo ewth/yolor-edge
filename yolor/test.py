@@ -390,19 +390,52 @@ def test(data,
     t_sec_end = datetime.now()
 
     if wandb:
-        stat_labels = ['mp','map50','mr', 'mf1', 'nt',   'seen', 'p', 'r', 'run_loss']
-        stat_values = [mp,   map50,  mr,   mf1, nt.sum(), seen,  p,   r,   run_loss]
-        wandb.log({"stats": dict(zip(stat_labels,stat_values))})
+        # stat_labels = ['mp','map50','mr', 'mf1', 'nt',   'seen', 'p', 'r', 'run_loss']
+        # stat_values = [mp,   map50,  mr,   mf1, nt.sum(), seen,  p,   r,   run_loss]
+        # wandb.log({"stats": dict(zip(stat_labels,stat_values))})
+        # names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]
+        # wandb.log({"names": names, "nt": nt, "p": p, "r": r, "ap50": ap50, "ap": ap, "mp": mp, "mr": mr, "map50": map50, "map" : map})
+ 
+
         wandb.log({"time.stats": (t_sec_end-t_sec_start).total_seconds()})
+
+
+    person_stats = None
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
     print(pf % ('all', seen, nt.sum(), mp, mr, map50, map))
 
+    class_stats = [
+        {
+            "class": "all",
+            "stats": {
+                "seen": seen, "nt": nt.sum(), "p": mp, "r": mr, "ap50": map50, "ap": map
+            }
+        }
+    ]
+
     # Print results per class
     if verbose and nc > 1 and len(stats):
         for i, c in enumerate(ap_class):
             print(pf % (names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]))
+            the_stat = {
+                "class": names[c],
+                "stats": {
+                    i: "i", "c": c, "nt" : nt[c], "p": p[i], "r": r[i], "ap50": ap50[i], "ap": ap[i]
+                }
+            }
+            class_stats.append(the_stat)
+            # if person_stats is None:
+            #     if names[c] in ["person","human"]:
+            #         person_stats = the_stat
+
+    # Class stats
+    if wandb:
+        wandb.log({"class_stats": class_stats})
+        if person_stats is not None:
+            wandb.log({"person_class": person_stats})
+
 
     t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
     if wandb:
@@ -500,8 +533,8 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str, default='/yolor-edge/data/coco-2017/coco.yaml', help='*.data path')
     parser.add_argument('--names', type=str, default='/yolor-edge/data/coco-2017/coco.names', help='*.cfg path')
     parser.add_argument('--is-coco', action='store_true', help='Indicate using COCO data')
-    parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
-    parser.add_argument('--img-size', type=int, default=128, help='inference size (pixels)')
+    parser.add_argument('--batch-size', type=int, default=8, help='size of each image batch')
+    parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--log-images', type=int, default=32, help='log images')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.65, help='IOU threshold for NMS')

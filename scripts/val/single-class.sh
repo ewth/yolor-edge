@@ -14,7 +14,7 @@ DATASET="COCO-2017"
 TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
 TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
 
-EXTRA_ARGS=""
+EXTRA_ARGS="--single-class"
 
 if [[ ! -z "${DEEPRESCUE}" ]]; then
     if [[ "${DEEPRESCUE}" == "1" ]]; then
@@ -73,38 +73,10 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-QUICK_RUN=1
-if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
-    PROJECT_NAME="${PROJECT_NAME}_quick"
-fi
-
-# Although useful, tegrastats has to run outside the container at the minute
-# BENCHMARK=0
-# if [[ -z "${BENCHMARK}" && ${BENCHMARK} == "1" ]]; then
-#     DATE=$(date +"%F %T")
-#     OUTFILE=$(date +"%s")
-#     mkdir -p /resources/logs
-#     OUTFILE="/resources/logs/tegra_${PROJECT_NAME}_${OUTFILE}.log"
-#     echo "# Start: ${DATE}" > ${OUTFILE}
-#     tegrastats --interval 2000 --logfile ${OUTFILE} &
-# fi
-
-# Quick run
-if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
-    echo " quick run"
-    ${ADD_FRONT}SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
-        --img-size 64 --batch-size 64 \
-        --single-cls ${EXTRA_ARGS} \
-        --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
-        --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
-        --name ${PROJECT_NAME}
-    exit
-fi
-
-
 # Normal run
 SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
     ${EXTRA_ARGS} --verbose \
+    --single-cls \
     --save-txt --save-conf --save-json \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
     --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
