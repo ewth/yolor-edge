@@ -14,7 +14,7 @@ DATASET="COCO-2017"
 TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
 TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
 
-EXTRA_ARGS="--single-class"
+EXTRA_ARGS="--single-cls"
 
 if [[ ! -z "${DEEPRESCUE}" ]]; then
     if [[ "${DEEPRESCUE}" == "1" ]]; then
@@ -45,7 +45,7 @@ if [[ -z "${YOLOR_CFG}" ]]; then
     YOLOR_CFG=yolor_p6
 fi
 if [[ -z "${PROJECT_NAME}" ]]; then
-    PROJECT_NAME="${YOLOR_CFG}_val"
+    PROJECT_NAME="${YOLOR_CFG}_val_sc"
 fi
 ADD_FRONT=""
 if [[ ! -z "${WANDB_TAGS}" ]]; then
