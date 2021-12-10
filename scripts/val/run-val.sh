@@ -44,15 +44,18 @@ fi
 if [[ -z "${YOLOR_CFG}" ]]; then
     YOLOR_CFG=yolor_p6
 fi
+if [[ -z "${YOLOR_MODEL}" ]]; then
+    YOLOR_MODEL=${YOLOR_CFG}
+fi
 if [[ -z "${PROJECT_NAME}" ]]; then
-    PROJECT_NAME="${YOLOR_CFG}_val"
+    PROJECT_NAME="${YOLOR_MODEL}_val"
 fi
 ADD_FRONT=""
 if [[ ! -z "${WANDB_TAGS}" ]]; then
     ADD_FRONT="${EXTRA_ARGS} WANDB_TAGS=${WANDB_TAGS} "
 fi
 
-echo "Starting validation run of ${YOLOR_CFG} on ${DATASET} data"
+echo "Starting validation run of ${YOLOR_MODEL} on ${DATASET} data"
 if [[ ! -z "${EXTRA_ARGS}" ]]; then
     echo " with extra args ${EXTRA_ARGS}"
 fi
@@ -73,7 +76,7 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-QUICK_RUN=1
+QUICK_RUN=0
 if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
     PROJECT_NAME="${PROJECT_NAME}_quick"
 fi
@@ -107,5 +110,5 @@ SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
     ${EXTRA_ARGS} --verbose \
     --save-txt --save-conf --save-json \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
-    --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
+    --weights /resources/weights/yolor/${YOLOR_MODEL}.pt \
     --name ${PROJECT_NAME}
