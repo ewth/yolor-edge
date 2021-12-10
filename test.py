@@ -4,6 +4,7 @@
 
 
 import argparse
+from datetime import datetime
 import glob
 import json
 import os
@@ -31,6 +32,32 @@ def load_classes(path):
         names = f.read().split('\n')
     return list(filter(None, names))  # filter removes empty strings (such as last line)
 
+# Generate summary stats performance table
+# @todo: a nicer way to achieve this?
+def summary_stats(raw_stats):
+    # these are based on what COCOeval() spits out
+    ious = [
+        "0.50:0.95","0.50","0.75","0.50:0.95","0.50:0.95","0.50:0.95",
+        "0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95","0.50:0.95",
+    ]
+    areas = [
+        "all","all","all","small","medium","large",
+        "all","all","all","small","medium","large"
+    ]
+
+    max_dets = [
+        100,100,100,100,100,100,
+        1,10,100,100,100,100,
+    ]
+
+    metrics = [
+        "ap","ap","ap","ap","ap","ap",
+        "ar","ar","ar","ar","ar","ar",
+    ]
+
+    # columns: ["metric","IoU","area","maxDets","result"]
+    return [[metric,iou,area,max_det,result] for (iou,area,max_det,metric,result) in zip(ious,areas,max_dets,metrics,raw_stats)]
+
 
 def test(data,
          weights=None,
@@ -50,6 +77,8 @@ def test(data,
          plots=True,
          log_imgs=0,
          is_coco = False):  # number of logged images
+
+    t_very_start = datetime.now()
 
     # Initialize/load model and set device
     training = model is not None
@@ -86,53 +115,76 @@ def test(data,
 
     # Configure
     model.eval()
-    if not is_coco and data.endswith('coco.yaml'):
-        is_coco = True
 
+    data_file = data
     with open(data) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)  # model dict
 
     check_dataset(data)  # check
+
+    
     nc = 1 if single_cls else int(data['nc'])  # number of classes
+
+    # @todo: look into iouv, niou
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     niou = iouv.numel()
 
     # Logging
     log_imgs = min(log_imgs, 100) # ceil
+
+    # Setup run config for wandb
+    run_config = {
+        "data_file": opt.data,
+        "names_file": opt.names,
+        "is_coco": is_coco,
+        "cfg": opt.cfg,
+        "weights": weights,
+        "nc": nc,
+        "device": device,
+        "single_cls": single_cls,
+        "conf_thres": conf_thres,
+        "iou_thres": iou_thres,
+        "task": opt.task,
+        "batch_size": batch_size,
+        "image_size": imgsz,
+        "training": training,
+        "augment": opt.augment,
+        "shm_size": os.getenv("SHM_SIZE"),
+        "z": {
+            "verbose": opt.verbose,
+            "log_imgs": log_imgs,
+            "save_txt": opt.save_txt,
+            "save_conf": opt.save_conf,
+            "save_json": opt.save_json,
+            "project": opt.project,
+            "name": opt.name,
+            # @todo: find a more useful way to log model data
+            # "model": model,
+        },
+    }
+
+
+    # Get jetson_clocks
+    jcfile = "/resources/yolor_edge_jetson_clocks.out"
+    if os.path.isfile(jcfile):
+        f = open(jcfile, 'r')
+        jetson_clocks = f.read()
+        f.close()
+        run_config["z"]["jetson_clocks"] = jetson_clocks
+
     wandb = None 
     try:
-        run_config = {
-                "device": device,
-                "is_coco" : is_coco,
-                "single_cls": single_cls,
-                "num_classes": nc,
-                "log_imgs" : log_imgs,
-                "weights": weights,
-                "conf_thres": conf_thres,
-                "iou_thres": iou_thres,
-                "model": opt.cfg,
-                "plots": plots,
-                "task": opt.task,
-                "batch_size": batch_size,
-                "image_size": imgsz,
-                "shm_size": os.getenv("SHM_SIZE"),
-                "comment": os.getenv("WANDB_COMMENT")
-        }
-
-        # @todo: re-enable
-        raise ImportError("Disabling wandb for a minute")
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
-        tags = [opt.name, "yolor-edge", opt.task]
-        if not os.getenv("WANDB_TAGS") == "":
-            tags = tags + os.getenv("WANDB_TAGS").split(',')
+        tags = [opt.name, "yolor-edge", opt.task, Path(data_file).name]
+        if not os.getenv("WANDB_TAGS") == None:
+            tags = tags + str(os.getenv("WANDB_TAGS")).split(',')
         wandb.init(
             name = run_name,
             tags = tags,
             config = run_config
             )
-        wandb.watch(model)
     except ImportError:
         log_imgs = 0
 
@@ -144,23 +196,37 @@ def test(data,
         dataloader = create_dataloader(path, imgsz, batch_size, 64, opt, pad=0.5, rect=True)[0]
 
     seen = 0
+    # Work out names
     try:
         names = model.names if hasattr(model, 'names') else model.module.names
     except:
         names = load_classes(opt.names)
-
+    # Needs to be a dict
     names_dict = dict(enumerate(names))
 
     if wandb:
-        wandb.log({"class_names": names})
-
-    summary_stats = {}
+        wandb.config.update({"z.class_count": len(names)})
+        # Logging this seems pointless now but it can be turned back on
+        # wandb.config.update({"z.class_names": names})
+        pass
 
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
+    mf1 = 0.
     loss = torch.zeros(3, device=device)
+    run_loss = [loss]
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
+
+    if wandb:
+        # @todo: turn this on and see how it goes
+        wandb.watch(model, log_freq=100)
+        pass
+
+
+    t_sec_start = datetime.now()
+
+    # Run inference
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -179,8 +245,7 @@ def test(data,
             # Compute loss
             if training:  # if model has loss hyperparameters
                 loss += compute_loss([x.float() for x in train_out], targets, model)[1][:3]  # box, obj, cls
-                if wandb:
-                    wandb.log({"loss": loss})
+                run_loss.append(loss)
 
             # Run NMS
             t = time_synchronized()
@@ -212,7 +277,7 @@ def test(data,
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
             # W&B logging                
-            if plots and len(wandb_images) < log_imgs:
+            if len(wandb_images) < log_imgs:
                 # pred.tolist() becomes:
                 #   [239.5, 106.875, 257.75, 124.875, 0.490966796875, 14.0]
                 box_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
@@ -279,52 +344,118 @@ def test(data,
             f = save_dir / f'test_batch{batch_i}_pred.jpg'
             plot_images(img, output_to_target(output, width, height), paths, f, names)  # predictions
 
+    t_sec_end = datetime.now()
+    
+    if wandb:
+        inf_time = (t_sec_end - t_sec_start).total_seconds()
+        wandb.log({"time.inference": inf_time})
+    
     # Compute statistics
+    t_sec_start = datetime.now()
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
-        p, r, ap, f1, ap_class = ap_per_class(*stats, plot=plots, fname=save_dir / 'precision-recall_curve.png')
+        # ap_per_class(): return p, r, ap, f1, unique_classes.astype('int32'), px, py
+        p, r, ap, f1, ap_class, px, py = ap_per_class(*stats, plot=plots, fname=save_dir / 'precision-recall_curve.png')
+        
+        # @todo: Plot P and R
         if wandb:
-            wandb.log({"P": p, "R": r, "AP": ap, "f1": f1, "ap_class": ap_class})
+            # table_data = [[x,y] for (x,y) in zip(px,py)]
+            # table = wandb.Table(columns=["precision","recall"], data=table_data)
+            # wandb.log({"precision_recall": wandb.plot.scatter(table, "Precision", "Recall", title="Precision vs Recall")})
+            wandb.log({"stats1": {
+                "p": p,
+                "r": r,
+                "ap": ap,
+                "f1": f1,
+                "ap_class": ap_class
+            }})
+
         p, r, ap50, ap = p[:, 0], r[:, 0], ap[:, 0], ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
         mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
-        #if wandb:
-            # wandb.log({"mP": mp, "mAP_50": map50, "mAP": map, "mR": mr})
-        summary_stats = {"mP": mp, "mAP_50": map50, "mAP": map, "mR": mr}
+        mf1 = f1.mean()
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
+
+        if wandb:
+            wandb.log({"stats2": {
+                "p": p,
+                "r": r,
+                "ap": ap,
+                "ap50": ap50,
+                "nt": nt
+            }})
+
     else:
         nt = torch.zeros(1)
 
-    summary_stats["nt"] = nt
+    t_sec_end = datetime.now()
+
+    if wandb:
+        # stat_labels = ['mp','map50','mr', 'mf1', 'nt',   'seen', 'p', 'r', 'run_loss']
+        # stat_values = [mp,   map50,  mr,   mf1, nt.sum(), seen,  p,   r,   run_loss]
+        # wandb.log({"stats": dict(zip(stat_labels,stat_values))})
+        # names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]
+        # wandb.log({"names": names, "nt": nt, "p": p, "r": r, "ap50": ap50, "ap": ap, "mp": mp, "mr": mr, "map50": map50, "map" : map})
+ 
+
+        wandb.log({"time.stats": (t_sec_end-t_sec_start).total_seconds()})
+
+
+    person_stats = None
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
     print(pf % ('all', seen, nt.sum(), mp, mr, map50, map))
 
+    class_stats = [
+        {
+            "class": "all",
+            "stats": {
+                "seen": seen, "nt": nt.sum(), "p": mp, "r": mr, "ap50": map50, "ap": map
+            }
+        }
+    ]
+
     # Print results per class
     if verbose and nc > 1 and len(stats):
         for i, c in enumerate(ap_class):
             print(pf % (names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]))
+            the_stat = {
+                "class": names[c],
+                "stats": {
+                    i: "i", "c": c, "nt" : nt[c], "p": p[i], "r": r[i], "ap50": ap50[i], "ap": ap[i]
+                }
+            }
+            class_stats.append(the_stat)
+            # if person_stats is None:
+            #     if names[c] in ["person","human"]:
+            #         person_stats = the_stat
+
+    # Class stats
+    if wandb:
+        wandb.log({"class_stats": class_stats})
+        if person_stats is not None:
+            wandb.log({"person_class": person_stats})
+
+
+    t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
+    if wandb:
+        speeds = [round(x,5) for x in t[0:3]]
+        wandb.log({"speed": {"inference": speeds[0], "nms": speeds[1], "total": speeds[2]} })
+        # These are included in config but logging again incase changed
+        wandb.log({"image_size": imgsz, "batch_size": batch_size})
 
     # Print speeds
-    t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
-    
-
     if not training:
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
-        summary_stats["speed"] = [round(t[0], 4), round(t[1], 4), round(t[2], 4)]
-        
 
     # W&B logging
     if plots and wandb:
-        wandb.log({"Images": wandb_images})
-        wandb.log({"Validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
+        wandb.log({"images": wandb_images})
+        wandb.log({"validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
+        # @todo: don't log pvr in wandb after started logging via data
+        wandb.log({"precision_vs_recall": wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")})
 
-    if wandb:
-        # wandb.log({"P": p, "R": r, "AP_50": ap50, "AP": ap,  "num_targets": nt})
-        #wandb.log({"speed": [t[0],t[1],t[2]]})
-        wandb.log({"PrecisionRecall": wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")})
-
-
+    t_sec_start = datetime.now()
     # Save JSON
     if len(jdict):
         w = Path(weights[0] if isinstance(weights, list) else weights).stem if weights is not None else ''  # weights
@@ -347,9 +478,12 @@ def test(data,
                 with open(pred_json, 'w') as f:
                     json.dump(jdict, f)
 
+
         # Updated pyocotools==2.0.2 so the float conversion bug is fixed
         from pycocotools.coco import COCO
         from pycocotools.cocoeval import COCOeval
+
+        coco_eval_start = datetime.now()
         anno = COCO(anno_json)  # init annotations api
         pred = anno.loadRes(pred_json)  # init predictions api
         eval = COCOeval(anno, pred, 'bbox')
@@ -358,13 +492,24 @@ def test(data,
         eval.evaluate()
         eval.accumulate()
         eval.summarize()
-        print(eval.stats)
-        if wandb:
-            wandb.log({"stats": eval.stats})
 
         map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
+
+        # @todo: try this out
+        # print(eval.params)
+
+        coco_eval_time = datetime.now() - coco_eval_start
+
+        if wandb:
+            table = wandb.Table(columns=["metric","IoU","area","maxDets","result"], data=summary_stats(eval.stats))
+            wandb.log({"performance_table": table})
+            coco_eval_time = coco_eval_time.total_seconds()
+            wandb.log({"eval": { "map": map, "map50": map50, "stats": eval.stats }})
+            
+    t_sec_end = datetime.now()
     if wandb:
-            wandb.log({"Summary" : summary_stats})
+        wandb.log({"time.eval": (t_sec_end-t_sec_start).total_seconds()})
+
     # Return results
     if not training:
         print('Results saved to %s' % save_dir)
@@ -372,6 +517,13 @@ def test(data,
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
+
+    if wandb:
+        wandb.log({"maps": maps})
+        t_run_time = datetime.now() - t_very_start
+        t_run_time = t_run_time.total_seconds()
+        wandb.log({"time.total" : t_run_time})
+
     return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
 
 
@@ -381,8 +533,8 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str, default='/yolor-edge/data/coco-2017/coco.yaml', help='*.data path')
     parser.add_argument('--names', type=str, default='/yolor-edge/data/coco-2017/coco.names', help='*.cfg path')
     parser.add_argument('--is-coco', action='store_true', help='Indicate using COCO data')
-    parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
-    parser.add_argument('--img-size', type=int, default=128, help='inference size (pixels)')
+    parser.add_argument('--batch-size', type=int, default=8, help='size of each image batch')
+    parser.add_argument('--img-size', type=int, default=768, help='inference size (pixels)')
     parser.add_argument('--log-images', type=int, default=32, help='log images')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.65, help='IOU threshold for NMS')
@@ -400,7 +552,11 @@ if __name__ == '__main__':
     parser.add_argument('--cfg', type=str, default='/yolor-edge/yolor/cfg/yolor_p6.cfg', help='*.cfg path')
 
     opt = parser.parse_args()
-    opt.save_json |= opt.data.endswith('coco.yaml')
+    is_coco = opt.is_coco
+    if not is_coco and opt.data.endswith('coco.yaml'):
+        is_coco = True
+
+    opt.save_json |= is_coco
     opt.data = check_file(opt.data)  # check file
 
     if opt.task in ['val', 'test']:  # run normally
@@ -418,7 +574,7 @@ if __name__ == '__main__':
             save_txt = opt.save_txt,
             save_conf = opt.save_conf,
             log_imgs = opt.log_images,
-            is_coco = opt.is_coco
+            is_coco = is_coco
         )
 
     elif opt.task == 'study':  # run over a range of settings and save/plot
