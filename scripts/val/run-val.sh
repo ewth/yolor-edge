@@ -95,7 +95,7 @@ fi
 # Quick run
 if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
     echo " quick run"
-    ${ADD_FRONT}SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
+    SHM_SIZE=${SHM_SIZE} ${ADD_FRONT} python3 /yolor-edge/yolor/test.py \
         --img-size 64 --batch-size 64 \
         --single-cls ${EXTRA_ARGS} \
         --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
@@ -106,7 +106,7 @@ fi
 
 
 # Normal run
-SHM_SIZE=${SHM_SIZE} python3 /yolor-edge/yolor/test.py \
+SHM_SIZE=${SHM_SIZE} ${ADD_FRONT} python3 /yolor-edge/yolor/test.py \
     ${EXTRA_ARGS} --verbose \
     --save-txt --save-conf --save-json \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
