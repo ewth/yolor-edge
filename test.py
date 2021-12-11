@@ -148,6 +148,7 @@ def test(data,
         "is_coco": is_coco,
         "cfg": opt.cfg,
         "weights": weights,
+        "weight": weights[0],
         "nc": nc,
         "device": device,
         "single_cls": single_cls,
@@ -186,7 +187,7 @@ def test(data,
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
-        tags = [opt.name, "yolor-edge", opt.task, Path(data_file).name]
+        tags = [opt.name, "yolor-edge", opt.task, weights[0], Path(data_file).name], opt.cfg]
         if not os.getenv("WANDB_TAGS") == None:
             tags = tags + str(os.getenv("WANDB_TAGS")).split(',')
         wandb.init(
