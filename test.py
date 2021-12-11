@@ -141,7 +141,6 @@ def test(data,
         data = yaml.load(f, Loader=yaml.FullLoader)  # model dict
 
     check_dataset(data)  # check
-
     
     nc = 1 if single_cls else int(data['nc'])  # number of classes
 
@@ -159,9 +158,6 @@ def test(data,
         f = open(jcfile, 'r')
         jetson_clocks = f.read()
         f.close()
-
-
-    
 
     wandb = None 
     try:
@@ -257,7 +253,6 @@ def test(data,
         # @todo: turn this on and see how it goes
         wandb.watch(model, log_freq=100)
         pass
-
 
     t_sec_start = datetime.now()
 
@@ -418,22 +413,13 @@ def test(data,
                 "ap50": ap50,
                 "nt": nt
             }})
-
     else:
         nt = torch.zeros(1)
 
     t_sec_end = datetime.now()
 
     if wandb:
-        # stat_labels = ['mp','map50','mr', 'mf1', 'nt',   'seen', 'p', 'r', 'run_loss']
-        # stat_values = [mp,   map50,  mr,   mf1, nt.sum(), seen,  p,   r,   run_loss]
-        # wandb.log({"stats": dict(zip(stat_labels,stat_values))})
-        # names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]
-        # wandb.log({"names": names, "nt": nt, "p": p, "r": r, "ap50": ap50, "ap": ap, "mp": mp, "mr": mr, "map50": map50, "map" : map})
- 
-
         wandb.log({"time.stats": (t_sec_end-t_sec_start).total_seconds()})
-
 
     person_stats = None
 
@@ -461,9 +447,6 @@ def test(data,
                 }
             }
             class_stats.append(the_stat)
-            # if person_stats is None:
-            #     if names[c] in ["person","human"]:
-            #         person_stats = the_stat
 
     # Class stats
     if wandb:
@@ -538,6 +521,17 @@ def test(data,
         if wandb:
             table = wandb.Table(columns=["metric","IoU","area","maxDets","result"], data=summary_stats(eval.stats))
             wandb.log({"performance_table": table})
+            # perf_stats = {
+            #     "ap": eval.stats[0], # map
+            #     "ap_50": eval.stats[1], #map50
+            #     "ap_75": eval.stats[2], # can't hurt
+            #     "ap_S": eval.stats[3], # performance_table[iou=0.50:0.95, area=small].result
+            #     "ap_M": eval.stats[4], # performance_table[iou=0.50:0.95, area=medium].result
+            #     "ap_L": eval.stats[5], # performance_table[iou=0.50:0.95, area=large].result
+            # }
+            perf_stats = ["ap", "ap_50", "ap_75", "ap_S", "ap_M", "ap_L"]
+            perf_stats = dict(zip(perf_stats, eval.stats[:len(perf_stats)]))
+            wandb.log(perf_stats)
             coco_eval_time = coco_eval_time.total_seconds()
             wandb.log({"eval": { "map": map, "map50": map50, "stats": eval.stats }})
             
