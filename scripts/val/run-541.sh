@@ -16,12 +16,12 @@ TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
 
 EXTRA_ARGS=""
 
-IMAGE_SIZE=1280
-BATCH_SIZE=1
+IMAGE_SIZE=512
+BATCH_SIZE=24
 YOLOR_CFG=yolor_p6
-YOLOR_MODEL=yolor_p6
+YOLOR_MODEL="yolor-p6-paper-541"
 PROJECT_NAME="yolor_p6_541"
-WANDB_TAGS="yolor-p6-paper-541"
+# WANDB_TAGS="yolor-p6-paper-541"
 
 if [[ ! -z "${BATCH_SIZE}" ]]; then
     EXTRA_ARGS="${EXTRA_ARGS} --batch-size ${BATCH_SIZE}"
