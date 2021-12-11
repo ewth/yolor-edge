@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# Conclusion:
-# Best mAP: 1280 at bsz 1, 0.525126601	0.707319024
-# Best mAP/runtime tradeoff at 1024x1024, batch size 4
-# 2nd: 960, 4
-# 3rd: 768, 8
-# 4th: 640, 12
-    
 SET_TAG="yolor-p6-paper"
 cd ../val
 YOLOR_CFG="yolor_p6"
