@@ -50,10 +50,7 @@ fi
 if [[ -z "${PROJECT_NAME}" ]]; then
     PROJECT_NAME="${YOLOR_MODEL}_val"
 fi
-ADD_FRONT=""
-if [[ ! -z "${WANDB_TAGS}" ]]; then
-    ADD_FRONT="${EXTRA_ARGS} WANDB_TAGS=${WANDB_TAGS} "
-fi
+
 
 echo "Starting validation run of ${YOLOR_MODEL} on ${DATASET} data"
 if [[ ! -z "${EXTRA_ARGS}" ]]; then
@@ -76,37 +73,8 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-QUICK_RUN=0
-if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
-    PROJECT_NAME="${PROJECT_NAME}_quick"
-fi
-
-# Although useful, tegrastats has to run outside the container at the minute
-# BENCHMARK=0
-# if [[ -z "${BENCHMARK}" && ${BENCHMARK} == "1" ]]; then
-#     DATE=$(date +"%F %T")
-#     OUTFILE=$(date +"%s")
-#     mkdir -p /resources/logs
-#     OUTFILE="/resources/logs/tegra_${PROJECT_NAME}_${OUTFILE}.log"
-#     echo "# Start: ${DATE}" > ${OUTFILE}
-#     tegrastats --interval 2000 --logfile ${OUTFILE} &
-# fi
-
-# Quick run
-if [[ ! -z "${QUICK_RUN}" && ${QUICK_RUN} == "1" ]]; then
-    echo " quick run"
-    SHM_SIZE=${SHM_SIZE} ${ADD_FRONT} python3 /yolor-edge/yolor/test.py \
-        --img-size 64 --batch-size 64 \
-        --single-cls ${EXTRA_ARGS} \
-        --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
-        --weights /resources/weights/yolor/${YOLOR_CFG}.pt \
-        --name ${PROJECT_NAME}
-    exit
-fi
-
-
 # Normal run
-SHM_SIZE=${SHM_SIZE} ${ADD_FRONT} python3 /yolor-edge/yolor/test.py \
+SHM_SIZE=${SHM_SIZE} WANDB_TAGS=${WANDB_TAGS} python3 /yolor-edge/yolor/test.py \
     ${EXTRA_ARGS} --verbose \
     --save-txt --save-conf --save-json \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
