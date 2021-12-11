@@ -15,6 +15,7 @@ import torch
 import yaml
 from tqdm import tqdm
 
+from models.experimental import attempt_load
 from utils.datasets import create_dataloader
 from utils.general import \
     coco80_to_coco91_class, check_dataset, check_file, check_img_size, box_iou, \
@@ -100,12 +101,20 @@ def test(data,
         model = dnmodel = Darknet(opt.cfg).to(device)
         dnmodel
         # load model
+        # try:
+
+        # This is from the updated branch:
+
         try:
             ckpt = torch.load(weights[0], map_location=device)  # load checkpoint
             ckpt['model'] = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(ckpt['model'], strict=False)
         except:
-            load_darknet_weights(model, weights[0])
+            # in the paper branch it does this:
+            model = attempt_load(weights, map_location=device)  # load FP32 model
+
+        # except:
+        #     load_darknet_weights(model, weights[0])
         imgsz = check_img_size(imgsz, s=64)  # check img_size
 
     # Half
