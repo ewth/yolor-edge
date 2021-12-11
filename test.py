@@ -531,7 +531,7 @@ def test(data,
             # }
             perf_stats = ["ap", "ap_50", "ap_75", "ap_S", "ap_M", "ap_L"]
             perf_stats = dict(zip(perf_stats, eval.stats[:len(perf_stats)]))
-            wandb.log(perf_stats)
+            wandb.log({"val": perf_stats})
             coco_eval_time = coco_eval_time.total_seconds()
             wandb.log({"eval": { "map": map, "map50": map50, "stats": eval.stats }})
             
