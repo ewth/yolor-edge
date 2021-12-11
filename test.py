@@ -168,7 +168,7 @@ def test(data,
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
-        tags = [opt.name, "yolor-edge", opt.task, weights[0], opt.cfg]
+        tags = ["yolor-edge", opt.name, opt.task, Path(weights[0]).name, Path(opt.cfg).name]
         if not os.getenv("WANDB_TAGS") == None:
             tags = tags + str(os.getenv("WANDB_TAGS")).split(',')
 
