@@ -9,7 +9,7 @@ import glob
 import json
 import os
 from pathlib import Path
-
+import hashlib
 import numpy as np
 import torch
 import yaml
@@ -81,6 +81,17 @@ def test(data,
 
     t_very_start = datetime.now()
 
+
+    # Generate file md5 hashes for logging purposes
+    weight_md5 = data_md5 = cfg_md5 = classes_md5 = ""
+    with open(weights[0], "rb") as readfile:
+        weight_md5 = hashlib.md5(readfile.read()).hexdigest()
+    with open(opt.cfg, "rb") as readfile:
+        cfg_md5 = hashlib.md5(readfile.read()).hexdigest()
+    with open(data, "rb") as readfile:
+        data_md5 = hashlib.md5(readfile.read()).hexdigest()
+
+
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -92,7 +103,7 @@ def test(data,
         save_txt = opt.save_txt  # save *.txt labels
 
         # Directories
-        save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
+        save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok, sep='_'))  # increment run
         (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
         run_name = save_dir.parts[-1]
@@ -141,55 +152,66 @@ def test(data,
     # Logging
     log_imgs = min(log_imgs, 100) # ceil
 
-    # Setup run config for wandb
-    run_config = {
-        "data_file": opt.data,
-        "names_file": opt.names,
-        "is_coco": is_coco,
-        "cfg": opt.cfg,
-        "weights": weights,
-        "weight": weights[0],
-        "nc": nc,
-        "device": device,
-        "single_cls": single_cls,
-        "conf_thres": conf_thres,
-        "iou_thres": iou_thres,
-        "task": opt.task,
-        "batch_size": batch_size,
-        "image_size": imgsz,
-        "training": training,
-        "augment": opt.augment,
-        "shm_size": os.getenv("SHM_SIZE"),
-        "z": {
-            "verbose": opt.verbose,
-            "log_imgs": log_imgs,
-            "save_txt": opt.save_txt,
-            "save_conf": opt.save_conf,
-            "save_json": opt.save_json,
-            "project": opt.project,
-            "name": opt.name,
-            # @todo: find a more useful way to log model data
-            # "model": model,
-        },
-    }
-
-
     # Get jetson_clocks
     jcfile = "/resources/yolor_edge_jetson_clocks.out"
+    jetson_clocks = None
     if os.path.isfile(jcfile):
         f = open(jcfile, 'r')
         jetson_clocks = f.read()
         f.close()
-        run_config["z"]["jetson_clocks"] = jetson_clocks
+
+
+    
 
     wandb = None 
     try:
         import wandb  # Weights & Biases
 
         # Set up wandb to log useful data
-        tags = [opt.name, "yolor-edge", opt.task, weights[0], Path(data_file).name], opt.cfg]
+        tags = [opt.name, "yolor-edge", opt.task, weights[0], opt.cfg]
         if not os.getenv("WANDB_TAGS") == None:
             tags = tags + str(os.getenv("WANDB_TAGS")).split(',')
+
+        tags = list(filter(None, tags))
+
+        # Setup run config for wandb
+        run_config = {
+            "data_file": opt.data,
+            "names_file": opt.names,
+            "is_coco": is_coco,
+            "cfg": opt.cfg,
+            "weights": weights,
+            "weight": weights[0],
+            "nc": nc,
+            "device": device,
+            "single_cls": single_cls,
+            "conf_thres": conf_thres,
+            "iou_thres": iou_thres,
+            "task": opt.task,
+            "batch_size": batch_size,
+            "image_size": imgsz,
+            "training": training,
+            "augment": opt.augment,
+            "shm_size": os.getenv("SHM_SIZE"),
+            "checksum": {
+                "weight": weight_md5,
+                "cfg" : cfg_md5,
+                "data": data_md5
+            },
+            "z": {
+                "verbose": opt.verbose,
+                "log_imgs": log_imgs,
+                "save_txt": opt.save_txt,
+                "save_conf": opt.save_conf,
+                "save_json": opt.save_json,
+                "project": opt.project,
+                "name": opt.name,
+                "jetson_clocks": jetson_clocks
+                # @todo: find a more useful way to log model data
+                # "model": model,
+            },
+        }
+
         wandb.init(
             name = run_name,
             tags = tags,
@@ -211,11 +233,14 @@ def test(data,
         names = model.names if hasattr(model, 'names') else model.module.names
     except:
         names = load_classes(opt.names)
+        
     # Needs to be a dict
     names_dict = dict(enumerate(names))
 
     if wandb:
-        wandb.config.update({"z.class_count": len(names)})
+        classes_md5 = hashlib.md5(','.join(names).encode('ascii')).hexdigest()
+        wandb.config.update({ "checksum.classes": classes_md5 })
+        wandb.config.update({ "z.class_count": len(names)})
         # Logging this seems pointless now but it can be turned back on
         # wandb.config.update({"z.class_names": names})
         pass
