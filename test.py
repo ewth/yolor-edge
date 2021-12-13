@@ -121,8 +121,10 @@ def test(data,
             ckpt['model'] = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(ckpt['model'], strict=False)
         except:
+            # @todo 12/12: look into model loading etc!
             # in the paper branch it does this:
             model = attempt_load(weights, map_location=device)  # load FP32 model
+            #load_darknet_weights(model, weights[0])
 
         # except:
         #     load_darknet_weights(model, weights[0])
@@ -169,6 +171,9 @@ def test(data,
             tags = tags + str(os.getenv("WANDB_TAGS")).split(',')
 
         tags = list(filter(None, tags))
+        shm_size = -1
+        if os.getenv("SHM_SIZE") is not None:
+            shm_size = int(os.getenv("SHM_SIZE"))
 
         # Setup run config for wandb
         run_config = {
@@ -188,7 +193,7 @@ def test(data,
             "image_size": imgsz,
             "training": training,
             "augment": opt.augment,
-            "shm_size": os.getenv("SHM_SIZE"),
+            "shm_size": shm_size,
             "checksum": {
                 "weight": weight_md5,
                 "cfg" : cfg_md5,
@@ -249,9 +254,9 @@ def test(data,
     run_loss = [loss]
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
 
+    wandb_model_graph = None
     if wandb:
-        # @todo: turn this on and see how it goes
-        wandb.watch(model, log_freq=100)
+        wandb_model_graph = wandb.watch(model, log="all")
         pass
 
     t_sec_start = datetime.now()
@@ -307,7 +312,7 @@ def test(data,
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
             # W&B logging                
-            if len(wandb_images) < log_imgs:
+            if wandb and len(wandb_images) < log_imgs:
                 # pred.tolist() becomes:
                 #   [239.5, 106.875, 257.75, 124.875, 0.490966796875, 14.0]
                 box_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
@@ -471,7 +476,15 @@ def test(data,
         wandb.log({"images": wandb_images})
         wandb.log({"validation": [wandb.Image(str(x), caption=x.name) for x in sorted(save_dir.glob('test*.jpg'))]})
         # @todo: don't log pvr in wandb after started logging via data
-        wandb.log({"precision_vs_recall": wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")})
+
+        # @todo 12/12: keeps erroring out on test runs. causes whole result to fail.
+        primgpath = save_dir.joinpath('precision-recall_curve.png')
+        if primgpath.exists:
+            try:
+                primg = wandb.Image(str(save_dir.joinpath('precision-recall_curve.png')), caption="Precision Recall Curve")
+                wandb.log({"precision_vs_recall": primg})
+            except:
+                pass
 
     t_sec_start = datetime.now()
     # Save JSON
@@ -531,7 +544,7 @@ def test(data,
             # }
             perf_stats = ["ap", "ap_50", "ap_75", "ap_S", "ap_M", "ap_L"]
             perf_stats = dict(zip(perf_stats, eval.stats[:len(perf_stats)]))
-            wandb.log({"val": perf_stats})
+            wandb.log({"performance": perf_stats})
             coco_eval_time = coco_eval_time.total_seconds()
             wandb.log({"eval": { "map": map, "map50": map50, "stats": eval.stats }})
             
@@ -606,6 +619,7 @@ if __name__ == '__main__':
             is_coco = is_coco
         )
 
+    # todo: use "study" instead of bash scripts?
     elif opt.task == 'study':  # run over a range of settings and save/plot
         for weights in ['yolor_p6.pt', 'yolor_w6.pt']:
             f = 'study_%s_%s.txt' % (Path(opt.data).stem, Path(weights).stem)  # filename to save to
@@ -613,7 +627,7 @@ if __name__ == '__main__':
             y = []  # y axis
             for i in x:  # img-size
                 print('\nRunning %s point %s...' % (f, i))
-                r, _, t = test(opt.data, weights, opt.batch_size, i, opt.conf_thres, opt.iou_thres, opt.save_json)
+                r, _, t = test(data=opt.data, weights=weights, batch_size=opt.batch_size, imgsz=i, conf_thres=opt.conf_thres, iou_thres=opt.iou_thres, save_json=opt.save_json)
                 y.append(r + t)  # results and times
             np.savetxt(f, y, fmt='%10.4g')  # save
         os.system('zip -r study.zip study_*.txt')
