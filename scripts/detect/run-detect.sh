@@ -35,19 +35,32 @@ if [[ ! -z "${NTH_FRAME}" ]]; then
     EXTRA_ARGS="${EXTRA_ARGS} --nth-frame ${NTH_FRAME}"
 fi
 
-# SOURCE=0
-SOURCE="/resources/sources/inference.mp4"
+if [[ -z "${YOLOR_CFG}" ]]; then
+    YOLOR_CFG=yolor_p6
+fi
+if [[ -z "${YOLOR_MODEL}" ]]; then
+    YOLOR_MODEL=${YOLOR_CFG}
+fi
+if [[ -z "${PROJECT_NAME}" ]]; then
+    PROJECT_NAME="${YOLOR_MODEL}_val"
+fi
 
-echo "Starting detection with ${YOLOR_VERSION} at image size ${IMAGE_SIZE}"
+
+# SOURCE=0
+# SOURCE="/resources/sources/inference.mp4"
+# SOURCE="/resources/datasets/darkfacesml/test"
+SOURCE="/resources/datasets/darkfacesml/images"
+
+echo "Starting detection with ${YOLOR_MODEL} at image size ${IMAGE_SIZE}"
 echo " on source ${SOURCE} with classes ${CLASS}"
 if [[ ! -z "${EXTRA_ARGS}" ]]; then
     echo " and extra args: ${EXTRA_ARGS}"
 fi
 
 python /yolor-edge/yolor/detect.py \
-    --source ${SOURCE} --conf 0.75 --device 0 \
+    --source ${SOURCE} --conf 0.5 --device 0 \
     --names /yolor-edge/data/coco-2017/coco.names \
     --output /resources/inference/yolor/output \
-    --cfg /yolor-edge/yolor/cfg/${YOLOR_VERSION}.cfg \
-    --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \
+    --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
+    --weights /resources/weights/yolor/${YOLOR_MODEL}.pt \
     --class ${CLASS} --img-size ${IMAGE_SIZE} ${EXTRA_ARGS}
