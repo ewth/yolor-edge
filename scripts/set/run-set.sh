@@ -1,55 +1,174 @@
 #!/bin/bash
 
-    
+# todo: gotta be a better way to automate this
+
+IMAGE_SIZE=1280
+BATCH_SIZE=1
+
+##
+### Test Runs
+##
+# SET_TAG="test-run"
+# YOLOR_CFG="yolor_p6"
+# YOLOR_MODEL="yolor_p6"
+# PROJECT_NAME="yolor_p6_test"
+
+# for runs in {1..3}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-test.sh
+# done
+
+# YOLOR_CFG="yolor_w6"
+# YOLOR_MODEL="yolor_w6"
+# PROJECT_NAME="yolor_w6_test"
+
+# for runs in {1..3}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-test.sh
+# done
+
+
+##
+### Validation Runs
+##
+
 SET_TAG="model-compare"
+IMAGE_SIZE=1280
+BATCH_SIZE=1
+
+
+# YOLOR_CFG="yolor_p6"
+# YOLOR_MODEL="yolor-p6"
+# PROJECT_NAME="yolor-p6-p_val"
+
+# for runs in {1..3}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
+
 YOLOR_CFG="yolor_p6"
 YOLOR_MODEL="yolor-p6-paper-541"
 PROJECT_NAME="yolor-p6-paper-541_val"
 
-cd ../val
+# for runs in {1..1}
+# do
+YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
 
 
-# todo: gotta be a better way to automate this
+# YOLOR_CFG="yolor_w6"
+# YOLOR_MODEL="yolor-w6"
+# PROJECT_NAME="yolor-w6-p_val"
 
-# best speed
-IMAGE_SIZE=512
-BATCH_SIZE=24
-for runs in {1..2}
-do
-	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ./run-val.sh
-done
-
-
-# Best mAP
-IMAGE_SIZE=1280
-BATCH_SIZE=1
-for runs in {1..2}
-do
-	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ./run-val.sh
-done
+# for runs in {1..1}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
 
 
-# 2nd best perf
-IMAGE_SIZE=960
-BATCH_SIZE=4
-for runs in {1..2}
-do
-	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ./run-val.sh
-done
+YOLOR_CFG="yolor_w6"
+YOLOR_MODEL="yolor-w6-paper-555"
+PROJECT_NAME="yolor-w6-paper-555_val"
+
+# for runs in {1..1}
+# do
+YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
 
 
-# 3rd best perf
-IMAGE_SIZE=768
-BATCH_SIZE=8
-for runs in {1..2}
-do
-	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ./run-val.sh
-done
+# ##
+# ### More Test Runs
+# ##
 
-# 4th best perf
-IMAGE_SIZE=640
-BATCH_SIZE=12
-for runs in {1..2}
-do
-	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ./run-val.sh
-done
+# SET_TAG="test-run"
+# YOLOR_CFG="yolor_p6"
+# YOLOR_MODEL="yolor-p6"
+# PROJECT_NAME="yolor-p6-p_test"
+
+# for runs in {1..3}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-test.sh
+# done
+
+
+# YOLOR_CFG="yolor_p6"
+# YOLOR_MODEL="yolor-p6-paper-541"
+# PROJECT_NAME="yolor-p6-paperp-541_test"
+
+# for runs in {1..3}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-test.sh
+# done
+
+# YOLOR_CFG="yolor_w6"
+# YOLOR_MODEL="yolor-w6"
+# PROJECT_NAME="yolor-w6-p_test"
+
+# for runs in {1..3}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-test.sh
+# done
+
+
+
+# YOLOR_CFG="yolor_w6"
+# YOLOR_MODEL="yolor-w6-paper-555"
+# PROJECT_NAME="yolor-w6-paperp-555_test"
+
+# for runs in {1..3}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-test.sh
+# done
+
+# # best speed
+# IMAGE_SIZE=512
+# BATCH_SIZE=24
+# for runs in {1..2}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
+
+
+# # 2nd best perf
+# IMAGE_SIZE=960
+# BATCH_SIZE=4
+# for runs in {1..2}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
+
+
+# # 3rd best perf
+# IMAGE_SIZE=768
+# BATCH_SIZE=8
+# for runs in {1..2}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
+
+# # 4th best perf
+# IMAGE_SIZE=640
+# BATCH_SIZE=12
+# for runs in {1..2}
+# do
+# 	YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+# done
+
+
+# # Expected failure
+# IMAGE_SIZE=1280
+# BATCH_SIZE=2
+# YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+
+# # Expected failure
+# IMAGE_SIZE=1600
+# BATCH_SIZE=1
+# YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+
+# # Expected failure
+# IMAGE_SIZE=1920
+# BATCH_SIZE=1
+# YOLOR_CFG=${YOLOR_CFG} YOLOR_MODEL=${YOLOR_MODEL} WANDB_TAGS=${SET_TAG} PROJECT_NAME=${PROJECT_NAME} IMAGE_SIZE=${IMAGE_SIZE} BATCH_SIZE=${BATCH_SIZE} ../run-val.sh
+
+
+
