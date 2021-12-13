@@ -15,7 +15,7 @@ fi
 # Valid widths include: 1280, 1024, 768, 512, 256
 
 if [[ -z "${IMAGE_SIZE}" ]]; then
-    IMAGE_SIZE=256
+    IMAGE_SIZE=1280
 fi
 
 if [[ -z "${CLASS}" ]]; then
@@ -35,8 +35,8 @@ if [[ ! -z "${NTH_FRAME}" ]]; then
     EXTRA_ARGS="${EXTRA_ARGS} --nth-frame ${NTH_FRAME}"
 fi
 
-SOURCE=0
-# SOURCE="/resources/"
+# SOURCE=0
+SOURCE="/resources/sources/inference.mp4"
 
 echo "Starting detection with ${YOLOR_VERSION} at image size ${IMAGE_SIZE}"
 echo " on source ${SOURCE} with classes ${CLASS}"
@@ -50,4 +50,4 @@ python /yolor-edge/yolor/detect.py \
     --output /resources/inference/yolor/output \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_VERSION}.cfg \
     --weights /resources/weights/yolor/${YOLOR_VERSION}.pt \
-    --class ${CLASS} --img-size ${IMAGE_SIZE} --details ${EXTRA_ARGS}
+    --class ${CLASS} --img-size ${IMAGE_SIZE} ${EXTRA_ARGS}
