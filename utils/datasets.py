@@ -144,7 +144,7 @@ class _RepeatSampler(object):
 
 
 class LoadImages:  # for inference
-    def __init__(self, path, img_size=640, auto_size=32):
+    def __init__(self, path, img_size=640, auto_size=32,print_output=False):
         p = str(Path(path))  # os-agnostic
         p = os.path.abspath(p)  # absolute path
         if '*' in p:
@@ -160,6 +160,7 @@ class LoadImages:  # for inference
         videos = [x for x in files if x.split('.')[-1].lower() in vid_formats]
         ni, nv = len(images), len(videos)
 
+        self.print_output = print_output
         self.img_size = img_size
         self.auto_size = auto_size
         self.files = images + videos
@@ -197,14 +198,16 @@ class LoadImages:  # for inference
                     ret_val, img0 = self.cap.read()
 
             self.frame += 1
-            print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nf, self.frame, self.nframes, path), end='')
+            if self.print_output:
+                print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nf, self.frame, self.nframes, path), end='')
 
         else:
             # Read image
             self.count += 1
             img0 = cv2.imread(path)  # BGR
             assert img0 is not None, 'Image Not Found ' + path
-            print('image %g/%g %s: ' % (self.count, self.nf, path), end='')
+            if self.print_output:
+                print('image %g/%g %s: ' % (self.count, self.nf, path), end='')
 
         # Padded resize
         img = letterbox(img0, new_shape=self.img_size, auto_size=self.auto_size)[0]
