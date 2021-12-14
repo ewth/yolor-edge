@@ -255,8 +255,10 @@ def test(data,
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
 
     wandb_model_graph = None
+    # note: watching the model probably provides useful insight, but it MASSIVELY increases data sent
+    # re-enable if/when needed
     if wandb:
-        wandb_model_graph = wandb.watch(model, log="all")
+        # wandb_model_graph = wandb.watch(model, log="all")
         pass
 
     t_sec_start = datetime.now()
@@ -273,9 +275,9 @@ def test(data,
         # Disable gradients
         with torch.no_grad():
             # Run model
-            t = time_synchronized()
+            timings = time_synchronized()
             inf_out, train_out = model(img, augment=augment)  # inference and training outputs
-            t0 += time_synchronized() - t
+            t0 += time_synchronized() - timings
 
             # Compute loss
             if training:  # if model has loss hyperparameters
@@ -283,9 +285,9 @@ def test(data,
                 run_loss.append(loss)
 
             # Run NMS
-            t = time_synchronized()
+            timings = time_synchronized()
             output = non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)
-            t1 += time_synchronized() - t
+            t1 += time_synchronized() - timings
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -312,16 +314,16 @@ def test(data,
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
             # W&B logging                
-            if wandb and len(wandb_images) < log_imgs:
-                # pred.tolist() becomes:
-                #   [239.5, 106.875, 257.75, 124.875, 0.490966796875, 14.0]
-                box_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
-                             "class_id": int(cls),
-                             "box_caption": "%s %.3f" % (names_dict[int(cls)], conf),
-                             "scores": {"class_score": conf},
-                             "domain": "pixel"} for *xyxy, conf, cls in pred.tolist()]
-                boxes = {"predictions": {"box_data": box_data, "class_labels": names_dict}}
-                wandb_images.append(wandb.Image(img[si], boxes=boxes, caption=path.name))
+            # if wandb and len(wandb_images) < log_imgs:
+            #     # pred.tolist() becomes:
+            #     #   [239.5, 106.875, 257.75, 124.875, 0.490966796875, 14.0]
+            #     box_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
+            #                  "class_id": int(cls),
+            #                  "box_caption": "%s %.3f" % (names_dict[int(cls)], conf),
+            #                  "scores": {"class_score": conf},
+            #                  "domain": "pixel"} for *xyxy, conf, cls in pred.tolist()]
+            #     boxes = {"predictions": {"box_data": box_data, "class_labels": names_dict}}
+            #     wandb_images.append(wandb.Image(img[si], boxes=boxes, caption=path.name))
 
             # Clip boxes to image bounds
             clip_coords(pred, (height, width))
@@ -460,16 +462,16 @@ def test(data,
             wandb.log({"person_class": person_stats})
 
 
-    t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
+    timings = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
     if wandb:
-        speeds = [round(x,5) for x in t[0:3]]
+        speeds = timings[0:3]
         wandb.log({"speed": {"inference": speeds[0], "nms": speeds[1], "total": speeds[2]} })
         # These are included in config but logging again incase changed
         wandb.log({"image_size": imgsz, "batch_size": batch_size})
 
     # Print speeds
     if not training:
-        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
+        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % timings)
 
     # W&B logging
     if plots and wandb:
@@ -566,7 +568,7 @@ def test(data,
         t_run_time = t_run_time.total_seconds()
         wandb.log({"time.total" : t_run_time})
 
-    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, timings
 
 
 if __name__ == '__main__':
