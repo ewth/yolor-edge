@@ -69,18 +69,23 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None, text_color
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, text_color, thickness=tf, lineType=line_type)
 
 def plot_text_with_border(
-    coord,
+    x,
+    y,
     img,
     label = "",
     text_colour = (255,255,255),
     border_color=(0,0,0),
-    line_type=cv2.LINE_4,
+    line_type=cv2.LINE_AA,
     font_scale = 0.5,
-    text_thickness = 2,
-    border_thickness = 3
+    text_thickness = 1,
+    border_thickness = 2,
+    line_height = 20
 ):
-    cv2.putText(img, label, coord, 0, font_scale, border_color, thickness=border_thickness, lineType=line_type)
-    cv2.putText(img, label, coord, 0, font_scale, text_colour, thickness=text_thickness, lineType=line_type)
+    line_n = 0
+    for line in label.split("\n"):
+        cv2.putText(img, line, (x,y+line_n*line_height), 0, font_scale, border_color, thickness=border_thickness, lineType=line_type)
+        cv2.putText(img, line, (x,y+line_n*line_height), 0, font_scale, text_colour, thickness=text_thickness, lineType=line_type)
+        line_n += 1
 
 
 def plot_wh_methods():  # from utils.general import *; plot_wh_methods()
