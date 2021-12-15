@@ -74,17 +74,61 @@ def plot_text_with_border(
     img,
     label = "",
     text_colour = (255,255,255),
-    border_color=(0,0,0),
+    border_colour=(0,0,0),
     line_type=cv2.LINE_AA,
-    font_scale = 0.5,
-    text_thickness = 1,
-    border_thickness = 2,
-    line_height = 20
+    font_scale = None,
+    text_thickness = None,
+    bold_text = False,
+    border_thickness = None,
+    line_height = 20,
+    scale_factor = 1,
+    font_face = 0
 ):
-    line_n = 0
+    
+    if font_scale is None:
+        font_scale = 0.55
+
+    if text_thickness is None:
+        text_thickness = font_scale * 3
+
+    if bold_text:
+        font_scale = 1.1 * font_scale
+        text_thickness = 1.1 * text_thickness
+
+    if border_thickness is None:
+        border_thickness = 1.1 * text_thickness
+
+    x = int(x)
+    y = int(y)
+    line_n = int(line_height * scale_factor)
+    border_thickness = int(round(border_thickness * scale_factor))
+    text_thickness = int(round(text_thickness * scale_factor))
+    line_height *= scale_factor
+    font_scale *= scale_factor
+    line_n = 1
+
+    # A reference to the img (which is passed by reference) seems crucial for thread safety?
+    im_height, im_width, _ = img.shape
+    if im_width > 0:
+        # A nothing reference
+        im_height = int(im_height + 0.000001)
+    # shape output is like: (2160, 3840, 3)
+    # so (h,w,d) (I'm assuming 3 is dimension)
+
+    org = (x,y)
+    line = "[ptwb22] " + label
     for line in label.split("\n"):
-        cv2.putText(img, line, (x,y+line_n*line_height), 0, font_scale, border_color, thickness=border_thickness, lineType=line_type)
-        cv2.putText(img, line, (x,y+line_n*line_height), 0, font_scale, text_colour, thickness=text_thickness, lineType=line_type)
+        org = (x,int(y+line_n*line_height))
+
+        
+        # @todo: scale down if extends beyond image width
+        # @todo: only do width for now, but maybe look at height in the future
+        (line_width, line_height), line_baseline = cv2.getTextSize(line, font_face, font_scale, text_thickness)
+        if (x + line_width) > im_width:
+            print("Text exceeds image. This is not addressed yet.")
+
+        cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=border_colour, thickness=text_thickness, lineType=line_type)
+        cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=text_colour, thickness=text_thickness, lineType=line_type)
         line_n += 1
 
 
