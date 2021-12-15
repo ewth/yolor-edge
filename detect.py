@@ -1,5 +1,3 @@
-import argparse
-from math import ceil
 import os
 import time
 from pathlib import Path
@@ -19,110 +17,268 @@ from yolor.utils.torch_utils import select_device, load_classifier, time_synchro
 from yolor.models.models import *
 from yolor.utils.datasets import *
 from yolor.utils.general import *
-from datetime import datetime
 
 class Detect:
 
-    verbose = False
 
-    def __init__(self) -> None:
-        pass
+    #
+    # Setup params
+    #
 
-    def load_classes(path):
-        # Loads *.names file at 'path'
+    source_path: str
+    output_path: str
+    target_device: str
+    inference_size: int
+    run_name: str
+
+    model_weights: list
+    model_config: str
+    model_weights_path: str
+    model_config_path: str
+    model_half_mode: bool
+
+    class_names: str
+    classes_restrict: list
+
+    confidence_threshold: float
+    iou_threshold: float
+
+    agnostic_nms: bool
+
+    save_text: bool
+    save_images: bool
+    display_images: bool
+    save_video_frames: bool
+    capture_nth_frame: int
+    save_nth_frame: int
+
+    bounding_boxes_render: bool
+    bounding_boxes_label: bool
+    
+    stats_render: bool
+
+    mode_verbose = False
+    mode_augment = False
+    mode_headless = False
+
+    stats_top_prepend = []
+    stats_top_append = []
+    stats_bottom_prepend = []
+    stats_bottom_append = []
+    
+    # Modest
+    _have_setup = False
+    _system_name = "edge.nv_jx_nx"
+    _device = None
+    _have_init_device = False
+    _model = None
+    _have_loaded_model = False
+
+    #
+    # Juicy bits
+    #
+    _model = None
+    _half_mode = False
+
+    # Should probably do something here.
+    def __init__(
+        self,
+        output_path: str,
+        source_path: str,
+        target_device: str,
+        run_name: str,
+
+        model_weights = ["yolor_p6.pt"],
+        model_config = "yolor_p6.cfg",
+        model_weights_path = "/resources/weights/yolor",
+        model_config_path = "/yolor-edge/yolor/cfg",
+
+        class_names = "data/coco.names",
+        # Empty = all classes; specificy numeric index in list to restrict (e.g. 0 = person)
+        classes_restrict = [],
+
+        inference_size = 1280,
+        confidence_threshold = 0.4,
+        iou_threshold = 0.5,
+        agnostic_nms = False,
+
+
+        capture_nth_frame = 4,
+        save_nth_frame = 20,
+
+        save_text = False,
+        save_images = False,
+        display_images = False,
+        bounding_boxes_render = False,
+
+        bounding_boxes_label = False,
+        mode_headless = False,
+        display_info = False,
+        save_video_frames = False,
+
+        augment = False,
+
+
+        stats_top_append = [],
+        stats_bottom_append = [],
+        stats_top_prepend = [],
+        stats_bottom_prepend = [],
+
+        verbose = False,
+        system_name = "",
+
+    ):
+        # Seens like a lot of double handling. Better way?
+
+        # Paths; Device; Run name; stringy stuff
+        self.source_path, self.output_path, self.target_device, self.run_name = \
+            source_path, output_path, target_device, run_name
+
+        # Model details
+        self.model_weights, self.model_weights_path, self.model_config, self.model_config_path = \
+            model_weights, model_weights_path, model_config, model_config_path
+
+        # Class details
+        self.class_names, self.classes_restrict = \
+            class_names, classes_restrict
+
+        # Inference configuration
+        self.inference_size, self.confidence_threshold, self.iou_threshold, self.agnostic_nms = \
+            inference_size, confidence_threshold, iou_threshold, agnostic_nms
+
+        # Saving/output details
+        self.save_text, self.save_images, self.save_video_frames, self.display_images = \
+            save_text, save_images, save_video_frames, display_images
+
+        self.capture_nth_frame, self.save_nth_frame = \
+            capture_nth_frame, save_nth_frame
+
+        # Rendering image stuff
+        self.stats_render, self.bounding_boxes_render, self.bounding_boxes_label = \
+            display_info, bounding_boxes_render, bounding_boxes_label
+
+
+        # Stuff to tack on to stats
+        self.stats_top_prepend, self.stats_top_append, self.stats_bottom_prepend, self.stats_bottom_append = \
+            stats_top_prepend, stats_top_append, stats_bottom_prepend, stats_bottom_append
+
+        # Various flags
+        self.mode_verbose, self.mode_augment, self.mode_headless = \
+            verbose, augment, mode_headless
+
+        self._system_name = system_name or self._system_name
+
+
+    # Setup misc things
+    def setup(self):
+        out = self.output_path
+        if not os.path.exists(out):
+            self.display(f"Creating path {out}")
+            Path(out).mkdir(parents=True, exist_ok=True)  # make new output folder
+        #    shutil.rmtree(out)  # delete output folder
+        self._have_setup = True
+
+    # Return system_name (to stay immutable)
+    def get_system_name(self) -> str:
+        return self._system_name
+
+    # Loads *.names file at 'path'
+    def load_classes(self, path):
         with open(path, 'r') as f:
             names = f.read().split('\n')
         return list(filter(None, names))  # filter removes empty strings (such as last line)
 
+    # Display text only if in verbose mode
     def display(self, text: str, ignore_verbose = False):
-        if not self.verbose and not ignore_verbose:
+        if not self.mode_verbose and not ignore_verbose:
             return
-        print("[detect] " + text)
+        print("[yolor.detect] " + text)
 
-    def detect(
-        self,
-        output_folder: str,
-        source: str,
-        use_device: str,
-        weights: list,
-        inference_size = 1280,
 
-        classes = [],
 
-        cfg = "cfg/yolor_p6.cfg",
-        names = "data/coco.names",
+    # Load model
+    def load_model(self):
+        if not self.target_device:
+            print("Iniitalise device first")
+            return
 
-        conf_thres = 0.4,
-        iou_thres = 0.5,
+        if len(self.model_weights) < 1 or not self.model_config:
+            print("No weights/config specified")
+            return
+        # Load model
+        model = Darknet(self.model_config, self.inference_size).cuda()
+        model.load_state_dict(torch.load(self.model_weights[0], map_location=self.target_device)['model'])
+        #model = attempt_load(weights, map_location=device)  # load FP32 model
+        # @todo: might be enabling the check
+        #inference_size = check_img_size(inference_size, s=model.stride.max())  # check img_size
+        model.to(self.target_device).eval()
+        if self.half:
+            model.half()  # to FP16
 
-        nth_frame = -1,
-        agnostic_nms = False,
+        self._model = model
 
-        save_txt = False,
-        save_img = False,
-        view_img = False,
-        display_bb = False,
-        headless = True,
-        display_info = False,
-        save_frames = False,
+    # Initialise device
+    def init_device(self, no_half = False):
+        if not self._have_setup:
+            print("Run setup first")
+            return
+        if not self.target_device:
+            print("Target device not set")
+            return
 
-        augment = False,
+        self._device = select_device(self.target_device)
+        self._half_mode = False
+        if not no_half:
+            self._half_mode = self._device.type != 'cpu'  # half precision only supported on CUDA
+        print(f"Device initialised: {self._device.type}:{self._device}")
 
-        system_name = "edge.nv_jx_nx",
 
-        append_info_top = [],
-        append_info_bottom = [],
-        prepend_info_top = [],
-        prepend_info_bottom = [],
+    # Primary functionality
+    def run(self):
+        if not self.setup:
+            print("Run setup first.")
+            return
 
-        verbose = False,
+        if not self.target_device:
+            self.init_device()
 
-    ):
-        # out, source, weights, view_img, save_txt, imgsz, cfg, names = \
-        #     opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.cfg, opt.names
+        # Feels like a lot of double handling happening here
+        source, out, use_device, weights, cfg, classes = \
+            self.source_path, self.output_path, self.target_device, self.model_weights, self.model_config, self.classes_restrict
+
+        inference_size, nth_frame, headless, names, conf_thres, iou_thres = \
+            self.inference_size, self.nth_frame, self.mode_headless, self.class_names, self.confidence_threshold, self.iou_threshold
+
+        augment, agnostic_nms, display_bb, display_info, save_frames, save_txt = \
+            self.mode_augment, self.agnostic_nms, self.bounding_boxes_render, self.stats_render, self.save_video_frames, self.save_text
+
         webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
-        webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
-
-        self.verbose = verbose
-
+        verbose = self.mode_verbose
         if verbose:
-            self.display("Running detection in verbose mode")
+            self.display("Running in verbose mode")
             
-        if not os.path.exists(output_folder):
-            self.display(f"Creating path {output_folder}")
-            Path(output_folder).mkdir(parents=True, exist_ok=True)  # make new output folder
-        #    shutil.rmtree(out)  # delete output folder
+
 
         if webcam:
             view_img = True
-            save_path = str(Path(output_folder).joinpath('webcam_output.mp4'))
+            save_path = str(Path(out).joinpath('webcam_output.mp4'))
             self.display("Using webcam as source")
         else:
             save_img = True
-            save_path = str(Path(output_folder))
+            save_path = str(Path(out))
             self.display(f"Saving images to path {save_path}")
 
 
-        # Initialise
-        device = select_device(use_device)
-        self.display(f"Using device {use_device}, type {device.type}")
+        device = self.target_device
+        self.display(f"Using device {device}, type {device.type}")
 
-        half = device.type != 'cpu'  # half precision only supported on CUDA
 
         # Get model name
         model_name = Path(weights[0]).name.replace('.pt', '')
         self.display(f"Using model {model_name}")
 
-        # Load model
-        model = Darknet(cfg, inference_size).cuda()
-        model.load_state_dict(torch.load(weights[0], map_location=device)['model'])
-        #model = attempt_load(weights, map_location=device)  # load FP32 model
-        #imgsz = check_img_size(imgsz, s=model.stride.max())  # check img_size
-        model.to(device).eval()
-        if half:
-            model.half()  # to FP16
-            self.display("Using half")
+
 
         # Second-stage classifier
         # @todo: look into this
@@ -166,13 +322,13 @@ class Detect:
         uuid_str = '-'.split(str(uuid.uuid4()))
         run_name = 'detect-test-v0.7-' + uuid_str.pop()
 
-        output_folder = str(Path(output_folder).joinpath(run_name))
+        out = str(Path(out).joinpath(run_name))
 
         stats_base_string = [
             f"yolor-edge run: {run_name}"
             f"Algorithm: YOLOR; Model: '{model_name}'; Inf. Size {inference_size}px",
             f"Thresh: Conf {conf_thres:.3f}; IoU {iou_thres:.3f}",
-            f"System: {system_name}; Device: {device.type}:{use_device}"
+            f"System: {self.get_system_name()}; Device: {device.type}:{use_device}"
         ]
         stats_base_string = "\n".join(stats_base_string)
 
@@ -280,7 +436,7 @@ class Detect:
                 detections = det is not None and len(det)
 
                 source_name = Path(p).name
-                save_path = str(Path(output_folder) / source_name)
+                save_path = str(Path(out) / source_name)
                 detect_count = len(det)
                 inst_detected_conf = []
                 inst_detected_classes = []
@@ -297,7 +453,7 @@ class Detect:
                         stats_detections += 1
                         if save_txt:  # Write to file
                             xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                            txt_path = str(Path(output_folder) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
+                            txt_path = str(Path(out) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
                             with open(txt_path + '.txt', 'a') as f:
                                 f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
                         if save_img or view_img:
@@ -528,7 +684,7 @@ class Detect:
 
         cv2.destroyAllWindows()
         if save_txt or save_img:
-            print('Results saved to %s' % Path(output_folder))
+            print('Results saved to %s' % Path(out))
 
         # @todo: refactor into function/class/somewhere else
         # @todo: although useful, faster to copy vids and use specific software
