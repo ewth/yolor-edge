@@ -15,7 +15,7 @@ fi
 # Valid widths include: 1280, 1024, 768, 512, 256
 
 if [[ -z "${IMAGE_SIZE}" ]]; then
-    IMAGE_SIZE=1280
+    IMAGE_SIZE=256
 fi
 
 if [[ -z "${CLASS}" ]]; then
@@ -46,10 +46,10 @@ if [[ -z "${PROJECT_NAME}" ]]; then
 fi
 
 
-# SOURCE=0
+SOURCE=0
 # SOURCE="/resources/sources/inference.mp4"
 # SOURCE="/resources/datasets/darkfacesml/test"
-SOURCE="/resources/datasets/darkfacesml/images"
+# SOURCE="/resources/datasets/darkfacesml/images"
 
 echo "Starting detection with ${YOLOR_MODEL} at image size ${IMAGE_SIZE}"
 echo " on source ${SOURCE} with classes ${CLASS}"
@@ -58,9 +58,10 @@ if [[ ! -z "${EXTRA_ARGS}" ]]; then
 fi
 
 python /yolor-edge/yolor/detect.py \
-    --source ${SOURCE} --conf 0.5 --device 0 \
+    --source ${SOURCE} --conf 0.75 --device 0 \
     --names /yolor-edge/data/coco-2017/coco.names \
+    --view-img --display-info --display-bb \
     --output /resources/inference/yolor/output \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
     --weights /resources/weights/yolor/${YOLOR_MODEL}.pt \
-    --class ${CLASS} --img-size ${IMAGE_SIZE} ${EXTRA_ARGS}
+    --class ${CLASS} --img-size ${IMAGE_SIZE}
