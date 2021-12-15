@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 import os
 import time
 from pathlib import Path
@@ -28,7 +29,6 @@ class Detect:
     target_device: str
     inference_size: int
     run_name: str
-    output_path_append_run_name: bool
 
     webcam_source: bool
 
@@ -93,7 +93,6 @@ class Detect:
         source_path: str,
         target_device: str,
         run_name: str,
-        output_path_append_run_name = True,
         model_weights = "/resources/weights/yolor/yolor_p6.pt",
         model_config = "/yolor-edge/yolor/cfgyolor_p6.cfg",
         model_name = "",
@@ -149,7 +148,6 @@ class Detect:
         self.output_path = output_path
         self.target_device = target_device
         self.run_name = run_name
-        self.output_path_append_run_name = output_path_append_run_name
 
         # Model details
         self.model_weights = model_weights
@@ -206,10 +204,9 @@ class Detect:
 
         # This is probably unnecessary, but resetting flag at start of all setup methods in case it fails or something
         self._have_setup = False
-        output_path = self.output_path
-        if not os.path.exists(output_path):
-            self.display(f"Creating path {output_path}")
-            Path(output_path).mkdir(parents=True, exist_ok=True) 
+        if not Path(self.output_path).exists:
+            raise FileNotFoundError(self.output_path)
+
         source = self.source_path
         self.webcam_source = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
