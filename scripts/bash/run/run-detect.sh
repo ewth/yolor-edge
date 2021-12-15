@@ -78,7 +78,7 @@ IMAGE_SIZE=256
         --output ${OUT_DIR}/${YOLOR_MODEL}_${IMAGE_SIZE} \
         --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
         --weights /resources/weights/yolor/${YOLOR_MODEL}.pt \
-        --save-frames \
+        --save-frames --nth-frame 20 \
         --img-size ${IMAGE_SIZE}
 
     chmod u+rwx ${PASS_OUT_PATH}/*
