@@ -79,17 +79,16 @@ def plot_text_with_border(
     font_scale = None,
     text_bold = False,
     scale_factor = 1,
-    line_height = 1,
+    line_height = 20,
     font_face = 0,
     base_text_size = [],
     from_bottom = False
 ):
     
     if font_scale is None:
-        font_scale = 0.35
+        font_scale = 1
 
     text_thickness = font_scale * 2.25
-
 
     if text_bold:
         font_scale = 1.55 * font_scale
@@ -98,57 +97,54 @@ def plot_text_with_border(
     else:
         border_thickness = 2 * text_thickness
 
-
     border_thickness = int(round(border_thickness * scale_factor))
     text_thickness = int(round(text_thickness * scale_factor))
 
     font_scale *= scale_factor
 
-    if not base_text_size:
-        base_text_size = cv2.getTextSize("W", font_face, font_scale, text_thickness)
+    # base_text_w = base_text_w * scale_factor
+    # base_text_h = base_text_h * scale_factor
+    # base_text_baseline = base_text_baseline * scale_factor
 
-    (base_text_w, base_text_h), base_text_baseline = base_text_size
-    base_text_w = base_text_w * scale_factor
-    base_text_h = base_text_h * scale_factor
-    base_text_baseline = base_text_baseline * scale_factor
-
-    line_height = line_height * base_text_h
-
+    line_height = line_height * scale_factor
+    
+    base_text_h = 20
+    base_text_w = 20
     # Work out relative positioning
     starting_x = base_text_w * starting_column
-    starting_y = base_text_h * starting_row + base_text_baseline
+    starting_y = base_text_h * starting_row
 
     # @todo: Work out starting point for scaling.
-    # Current approach looks great on scaled stuff but horrible on unscaled (in terms of y)
-    # Hold up; forgot I was setting it explicitly (separated by 100 or so px) using arbitrary text
-
     # A reference to the img (which is passed by reference) seems crucial for thread safety?
-    im_height = im_width = None
+    im_height = im_width = 0
     try:
         im_shape = img.shape
+        # shape output is like: (2160, 3840, 3)
+        # so (h,w,d) (I'm assuming 3 is dimension)
         if len(im_shape) > 1:
             im_height = im_shape[0]
             im_width = im_shape[1]
     except:
         print("Issue looking at img shape")
 
-    if im_width:
-        # A nothing reference
-        im_height = int(im_height + 0.000001)
-    # shape output is like: (2160, 3840, 3)
-    # so (h,w,d) (I'm assuming 3 is dimension)
+    label_split = label.split("\n")
+
+    if from_bottom:
+        # If it's from the bottom, we need to know how many lines up to start at
+        starting_y = im_height - line_height * (len(label_split) + starting_row + 1)
+        pass
 
     x = int(starting_x)
     y = int(starting_y)
+
     line_n = 0
-
-    if not isinstance(label, list):
-        label = label.split("\n")
-
-    for line in label:
+    for line in label_split:
+        y += int(line_height)
         org = (x, y)
-        adj_y = int(y + (line_height * line_n))
-        y += adj_y if not from_bottom else (-1)*adj_y
+        line_n += 1
+
+        if line_n == 1:
+            line = f"(sc:{scale_factor:.2f}) {line}"
 
         # @todo: scale down if extends beyond image width
         # @todo: only do width for now, but maybe look at height in the future
@@ -163,7 +159,6 @@ def plot_text_with_border(
 
         cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=border_colour, thickness=border_thickness, lineType=line_type)
         cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=text_colour, thickness=text_thickness, lineType=line_type)
-        line_n += 1
 
 
 
