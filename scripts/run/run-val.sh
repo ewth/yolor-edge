@@ -1,18 +1,18 @@
 #!/bin/bash
 
-##
-# This script is meant to invoke training with some paramaters attached to allow easy logging (via wandb).
-# Mainly just metadata to help with comparing tests etc later.
-# Should only be run inside Docker!
-##
 
-# Thanks https://stackoverflow.com/questions/59895/
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
-DATASET="COCO-2017"
 # The test.py script reverts to these defaults too
-TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
-TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
+if [[ -z "${TEST_NAMES}" ]]; then
+    TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
+fi
+if [[ -z "${TEST_DATA}" ]]; then
+    TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
+fi
+
+if [[ -z "${DATASET}" ]]; then
+    DATASET="COCO-2017"
+fi
+
 
 EXTRA_ARGS=""
 
@@ -73,7 +73,7 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-# Normal run
+# Normal val run
 SHM_SIZE=${SHM_SIZE} WANDB_TAGS=${WANDB_TAGS} python3 /yolor-edge/yolor/test.py \
     ${EXTRA_ARGS} --verbose \
     --save-txt --save-conf --save-json \
