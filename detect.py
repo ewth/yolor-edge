@@ -1,17 +1,14 @@
 import argparse
 from math import ceil
 import os
-import platform
-import shutil
 import time
 from pathlib import Path
+import uuid
 
 import cv2
 from numpy.lib.function_base import average
 import torch
 import torch.backends.cudnn as cudnn
-
-from numpy import random
 
 from utils.google_utils import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -100,7 +97,8 @@ def detect(save_img=False):
     if webcam:
         view_img = True
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, nth_frame=opt.nth_frame)
+        nth_frame = opt.nth_frame if opt.nth_frame > 0 else 4
+        dataset = LoadStreams(source, img_size=imgsz, nth_frame=nth_frame)
     else:
         dataset = LoadImages(source, img_size=imgsz, auto_size=64, print_output=opt.verbose)
 
@@ -127,7 +125,18 @@ def detect(save_img=False):
     image_w = int(imgsz)
     image_h = int((3/4.0)*image_w)
 
-    stats_base_string = f"Model: {model_name}\nInf. Size: {imgsz} px\nConf. Thresh: {opt.conf_thres:.3f}\nIoU Thresh: {opt.iou_thres:.3f}\nDevice: {device.type}:{opt.device}"
+    uuid_str = '-'.split(str(uuid.uuid4()))
+    run_name = 'detect-test-v0.7-' + uuid_str.pop()
+
+    out = str(Path(out).joinpath(run_name))
+
+    stats_base_string = [
+        f"yolor-edge run: {run_name}"
+        f"Algorithm: YOLOR; Model: '{model_name}'; Inf. Size {imgsz}px",
+        f"Thresh: Conf {opt.conf_thres:.3f}; IoU {opt.iou_thres:.3f}",
+        f"System: {opt.system_name}; Device: {device.type}:{opt.device}"
+    ]
+    stats_base_string = "\n".join(stats_base_string)
     if classes:
         stats_base_string += " / Only: "
         for cls in classes:
@@ -151,8 +160,18 @@ def detect(save_img=False):
     video_resize_factor = 1
     video_resize = False
     videos_to_resize = []
-    iteration_start = last_frame_check = time.time()
+    iteration_start = time.time()
+    last_frame_check = None
 
+    source_name = None
+    video_mode = False
+
+    base_text_size = None
+
+    source_vid_writing = None
+    frame_save_path = None
+    source_number = 0
+    last_frame_saved = None
 
     # Run inference
     t0 = time.time()
@@ -195,6 +214,10 @@ def detect(save_img=False):
         current_frame = dataset.frame
         if current_frame == 1 or current_frame < prev_frame:
             frames_counted = 0
+            frame_save_path = None
+            source_name = None
+            video_mode = not (dataset.mode == 'images')
+            source_number += 1
             display("New source, resetting stats")
             iteration_start = last_frame_check = time_synchronized()
             this_frame_count = 0
@@ -217,7 +240,8 @@ def detect(save_img=False):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             detections = det is not None and len(det)
 
-            save_path = str(Path(out) / Path(p).name)           
+            source_name = Path(p).name
+            save_path = str(Path(out) / source_name)
             detect_count = len(det)
             inst_detected_conf = []
             inst_detected_classes = []
@@ -289,10 +313,14 @@ def detect(save_img=False):
                 right_now = time_synchronized()
                 run_time = (right_now - iteration_start)
                 
-                if frames_counted >= 10:
+                if frames_counted >= 20:
                     frame_time = time_synchronized()
-                    frame_time = last_frame_check - frame_time
-                    inst_fps = -1
+                    if last_frame_check is not None:
+                        frame_time = frame_time - last_frame_check
+                    else:
+                        frame_time = 1
+
+                    inst_fps = 'N/A'
                     if frame_time > 0:
                         last_frame_check = time_synchronized()
                         inst_fps = frames_counted / frame_time
@@ -300,34 +328,48 @@ def detect(save_img=False):
 
 
                 text_scale_factor = 1 if not video_resize else 1/video_resize_factor
+                # long_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam rhoncus ultricies ligula in pulvinar. In cursus nec ante eu volutpat. Ut a vulputate leo. Cras feugiat maximus quam, nec fringilla mi iaculis eget. Nam luctus, ipsum et feugiat vehicula, est sem consequat diam, at luctus velit ante quis velit. Donec in turpis id ex tempus tincidunt. Pellentesque eget dolor eget lectus aliquam interdum. Cras aliquam porttitor tempus. Nam porta in nibh ultricies tristique. Suspendisse vel nibh ut sapien blandit molestie. Vivamus et ex vestibulum risus sagittis congue facilisis vel massa. Nam hendrerit efficitur ante nec vulputate. Nulla quis egestas magna."
+                # plot_text_with_border(x=10,y=100, img=im0, label = 'Some unscaled text')
+                # plot_text_with_border(x=10,y=200, img=im0, label = 'Some unscaled Bold Text', text_bold=True)
+                # plot_text_with_border(x=10,y=300, img=im0, label = 'Unscaled: ' + long_string)
+                # plot_text_with_border(x=10,y=400, img=im0, label = 'Some scaled text', scale_factor=text_scale_factor)
+                # plot_text_with_border(x=10,y=500, img=im0, label = 'Scaled: ' + long_string, scale_factor=text_scale_factor)
+                # plot_text_with_border(x=10,y=600, img=im0, label = 'Scaled+Bold: ' + long_string, scale_factor=text_scale_factor, text_bold=True)
+                # plot_text_with_border(x=10,y=700, img=im0, label = 'Some Bold Text', text_bold=True, scale_factor=text_scale_factor)
+                
+                if base_text_size is None:
+                    # Just using W as it's a big character
+                    # @todo: find a good "standard" character for non-mono fonts
+                    base_text_size = cv2.getTextSize("W", 0, 1, 3)
+                    # (base_text_w, base_text_h), base_text_baseline = base_text_size
 
-                plot_text_with_border(x=10,y=100, img=im0, label = 'Some unscaled text')
-                plot_text_with_border(x=10,y=200, img=im0, label = 'Some unscaled Bold Text', bold_text=True)
-                plot_text_with_border(x=10,y=300, img=im0, label = 'Some unscaled text but this one is really long and drags on and on and on and on and it will probably run off the screen eventually right surely there has to be an edge to this image around here somewhere')
-                plot_text_with_border(x=10,y=400, img=im0, label = 'Some scaled text', scale_factor=text_scale_factor)
-                plot_text_with_border(x=10,y=500, img=im0, label = 'Some MORE scaled text but this one is really long and drags on and on and on and on and it will probably run off the screen eventually right surely there has to be an edge to this image around here somewhere', scale_factor=text_scale_factor)
-                plot_text_with_border(x=10,y=600, img=im0, label = 'Some Bold Text', bold_text=True, scale_factor=text_scale_factor)
+                plot_text_with_border(img=im0, starting_row = 1, starting_column=1, base_text_size = base_text_size, label = 'yolor-edge / E. Thompson / 2021', scale_factor = text_scale_factor, text_bold=True)
 
-                print_string = ""
-                print_string += "Inst. Detections: %d\n" % detect_count
-                print_string += "Inst. Classes: %s\n" % ', '.join(inst_detected_names)
-                print_string += f"Inst. Avg. Conf: {inst_avg_conf*100:.2f}%\n"
-                print_string += f"FPS: {inst_fps:.2f}\n"
-                print_string += "Inf Time: %.3fms\n" % (1E3 * inference_time)
-                print_string += f"NMS Time: %.3fms\n" % (1E3 * nms_time)
+                stats_top = stats_bottom = []
+                stats_top.append("Inst.:")
+                stats_top.append(f" Detections: {detect_count:d}")
+                stats_top.append(f" Classes: {', '.join(inst_detected_names)}")
+                stats_top.append(f" Avg. Conf: {inst_avg_conf*100:.2f}%")
+                stats_top.append(f" FPS: {inst_fps:.2f}\n")
+                stats_top.append(f" Inf. Time: {(1E3 * inference_time):.3f}ms")
+                stats_top.append(f" NMS Time: {(1E3 * nms_time):.3f}ms")
 
-                if dataset.mode == 'video':
-                    print_string += f"Frame: {dataset.frame}/{dataset.nframes}\n"
-                    print_string += f"Runtime: {run_time:.2f}s\n"
+                stats_bottom.append(f"{stats_base_string}")
+
+                if video_mode:
+                    source_string = f" Source: '{source_name}'"
                     if video_src_width > 0:
-                        print_string += f"Source: {video_src_width}x{video_src_height} px"
-                        if video_resize:
-                            print_string += " (scaled post-process)"
-                        print_string += "\n"
-                print_string += "\n"
-                print_string += "All Classes: %s\n" % ', '.join(running_names)
-                print_string += f"Avg. Conf: {avg_conf*100:.2f}%\n"
-                # print_string += f"{stats_base_string}"
+                        source_string += f" {video_src_width}x{video_src_height}"
+                    stats_bottom.append(source_string)
+                    stats_bottom.append(f" Frame: {dataset.frame}/{dataset.nframes}")
+                    stats_bottom.append(f" Runtime: {run_time:.2f}s\n")
+
+                plot_text_with_border(img=im0, starting_row=2, starting_column=1, base_text_size = base_text_size, label = stats_top, scale_factor=text_scale_factor)
+
+                
+                stats_bottom.append(f"All Classes: {', '.join(running_names)}")
+                stats_bottom.append(f"Avg. Conf: {avg_conf*100:.2f}")
+                plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, base_text_size = base_text_size, label = stats_top, scale_factor=text_scale_factor)
 
 
                     # run_time = (datetime.now() - time_start).total_seconds()
@@ -371,12 +413,14 @@ def detect(save_img=False):
                 # if cv2.waitKey(1) == ord('q'):  # q to quit
                     # raise StopIteration
 
+            # @todo: save webcam frames
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'images':
                     cv2.imwrite(save_path, im0)
                 else:
-                    if vid_path != save_path:  # new video
+                    if source_vid_writing != source_number:  # new video
+                        source_vid_writing = source_number
                         vid_path = save_path
                         display(f"New vid path: {vid_path}")
                         if isinstance(vid_writer, cv2.VideoWriter):
@@ -389,7 +433,8 @@ def detect(save_img=False):
                         video_src_width = int(video_src_width)
                         video_src_height = int(video_src_height)
 
-                        if video_src_width >= 2048:
+                        # Not sure if rounding error should be considered
+                        if video_src_width >= 1921:
                             video_resize = True
                             video_resize_width = 1920
                             video_resize_factor = float(video_src_height) / float(video_src_width)
@@ -413,8 +458,31 @@ def detect(save_img=False):
 
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), video_src_fps, (video_src_width, video_src_height))
                     vid_writer.write(im0)
-                    if opt.save_frames:
-                        cv2.imwrite(vid_path + f"_frame{this_frame_count}.jpg", im0)
+
+            if opt.save_frames:
+                save_frame = False
+                if frame_save_path is None:
+                    frame_save_path = Path(save_path)
+                    frame_save_path = frame_save_path.parent.joinpath(frame_save_path.name + '-frames')
+                    frame_save_path.mkdir(parents=True, exist_ok=True)
+
+
+                # first, check if there is any last frame saved or if current frame has gone back a step
+                      
+                if opt.nth_frame == 1 or opt.nth_frame < 0:
+                    save_frame = True
+                else:
+                    if opt.nth_frame > 0 and (current_frame % opt.nth_frame) == 0:
+                        save_frame = True
+
+                if not save_frame and (last_frame_saved is None or current_frame < last_frame_saved):
+                    save_frame = True
+
+                if save_frame and frame_save_path is not None:
+                    display(f"Saving frame {current_frame}")
+                    last_frame_saved = current_frame
+                    frame_save_to = frame_save_path.joinpath(f"frame-{current_frame:05d}.jpg")
+                    cv2.imwrite(str(frame_save_to), im0)
 
     if isinstance(vid_writer, cv2.VideoWriter):
         vid_writer.release()
@@ -491,8 +559,9 @@ if __name__ == '__main__':
     parser.add_argument('--append-date', action='store_true', help='Append date time string to output path')
     parser.add_argument('--verbose', action='store_true', help='Verbose output')
     parser.add_argument('--display-info', action='store_true', help='Display info/stats on images')
-    parser.add_argument('--nth-frame', type=int, default=4, help='Nth frame to capture from webcam source')
+    parser.add_argument('--nth-frame', type=int, default=-1, help='Nth frame to capture from webcam source. If used with "save-frames", indicates nth frame to save.')
     parser.add_argument('--save-frames', action='store_true', help='If a video, save each frame as a JPEG')
+    parser.add_argument('--system-name', type=str, default='edge', help='Running on label for displaying on images')
     opt = parser.parse_args()
 
     with torch.no_grad():
