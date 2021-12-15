@@ -69,67 +69,102 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None, text_color
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, text_color, thickness=tf, lineType=line_type)
 
 def plot_text_with_border(
-    x,
-    y,
     img,
+    starting_row = 0,
+    starting_column = 0,
     label = "",
     text_colour = (255,255,255),
     border_colour=(0,0,0),
     line_type=cv2.LINE_AA,
     font_scale = None,
-    text_thickness = None,
-    bold_text = False,
-    border_thickness = None,
-    line_height = 20,
+    text_bold = False,
     scale_factor = 1,
-    font_face = 0
+    line_height = 1,
+    font_face = 0,
+    base_text_size = [],
+    from_bottom = False
 ):
     
     if font_scale is None:
-        font_scale = 0.55
+        font_scale = 0.35
 
-    if text_thickness is None:
-        text_thickness = font_scale * 3
+    text_thickness = font_scale * 2.25
 
-    if bold_text:
-        font_scale = 1.1 * font_scale
-        text_thickness = 1.1 * text_thickness
 
-    if border_thickness is None:
-        border_thickness = 1.1 * text_thickness
+    if text_bold:
+        font_scale = 1.55 * font_scale
+        text_thickness = 1.55 * text_thickness
+        border_thickness = 2 * text_thickness
+    else:
+        border_thickness = 2 * text_thickness
 
-    x = int(x)
-    y = int(y)
-    line_n = int(line_height * scale_factor)
+
     border_thickness = int(round(border_thickness * scale_factor))
     text_thickness = int(round(text_thickness * scale_factor))
-    line_height *= scale_factor
+
     font_scale *= scale_factor
-    line_n = 1
+
+    if not base_text_size:
+        base_text_size = cv2.getTextSize("W", font_face, font_scale, text_thickness)
+
+    (base_text_w, base_text_h), base_text_baseline = base_text_size
+    base_text_w = base_text_w * scale_factor
+    base_text_h = base_text_h * scale_factor
+    base_text_baseline = base_text_baseline * scale_factor
+
+    line_height = line_height * base_text_h
+
+    # Work out relative positioning
+    starting_x = base_text_w * starting_column
+    starting_y = base_text_h * starting_row + base_text_baseline
+
+    # @todo: Work out starting point for scaling.
+    # Current approach looks great on scaled stuff but horrible on unscaled (in terms of y)
+    # Hold up; forgot I was setting it explicitly (separated by 100 or so px) using arbitrary text
 
     # A reference to the img (which is passed by reference) seems crucial for thread safety?
-    im_height, im_width, _ = img.shape
-    if im_width > 0:
+    im_height = im_width = None
+    try:
+        im_shape = img.shape
+        if len(im_shape) > 1:
+            im_height = im_shape[0]
+            im_width = im_shape[1]
+    except:
+        print("Issue looking at img shape")
+
+    if im_width:
         # A nothing reference
         im_height = int(im_height + 0.000001)
     # shape output is like: (2160, 3840, 3)
     # so (h,w,d) (I'm assuming 3 is dimension)
 
-    org = (x,y)
-    line = "[ptwb22] " + label
-    for line in label.split("\n"):
-        org = (x,int(y+line_n*line_height))
+    x = int(starting_x)
+    y = int(starting_y)
+    line_n = 0
 
-        
+    if not isinstance(label, list):
+        label = label.split("\n")
+
+    for line in label:
+        org = (x, y)
+        adj_y = int(y + (line_height * line_n))
+        y += adj_y if not from_bottom else (-1)*adj_y
+
         # @todo: scale down if extends beyond image width
         # @todo: only do width for now, but maybe look at height in the future
-        (line_width, line_height), line_baseline = cv2.getTextSize(line, font_face, font_scale, text_thickness)
-        if (x + line_width) > im_width:
-            print("Text exceeds image. This is not addressed yet.")
+        # (text_w, text_h), text_baseline = cv2.getTextSize(line, font_face, font_scale, text_thickness)
 
-        cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=border_colour, thickness=text_thickness, lineType=line_type)
+        # if not size_flagged and im_width is not None:
+        #     if (x + text_w) > im_width:
+        #         size_flagged = True
+
+        #     if (y + text_baseline + text_h):
+        #         size_flagged = True
+
+        cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=border_colour, thickness=border_thickness, lineType=line_type)
         cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=text_colour, thickness=text_thickness, lineType=line_type)
         line_n += 1
+
 
 
 def plot_wh_methods():  # from utils.general import *; plot_wh_methods()
