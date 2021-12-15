@@ -52,7 +52,7 @@ def attempt_load(weights, map_location=None):
 
 
 def gdrive_download(id='1n_oKgR81BJtqk75b00eAjdv03qVCQn2f', name='coco128.zip'):
-    # Downloads a file from Google Drive. from utils.google_utils import *; gdrive_download()
+    # Downloads a file from Google Drive. from yolor.utils.google_utils import *; gdrive_download()
     t = time.time()
 
     print('Downloading https://drive.google.com/uc?export=download&id=%s as %s... ' % (id, name), end='')

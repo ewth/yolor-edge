@@ -10,15 +10,15 @@ from numpy.lib.function_base import average
 import torch
 import torch.backends.cudnn as cudnn
 
-from utils.google_utils import attempt_load
-from utils.datasets import LoadStreams, LoadImages
-from utils.general import (check_img_size, non_max_suppression, apply_classifier, scale_coords, xyxy2xywh, strip_optimizer)
-from utils.plots import plot_one_box, plot_text_with_border
-from utils.torch_utils import select_device, load_classifier, time_synchronized
+from yolor.utils.google_utils import attempt_load
+from yolor.utils.datasets import LoadStreams, LoadImages
+from yolor.utils.general import (check_img_size, non_max_suppression, apply_classifier, scale_coords, xyxy2xywh, strip_optimizer)
+from yolor.utils.plots import plot_one_box, plot_text_with_border
+from yolor.utils.torch_utils import select_device, load_classifier, time_synchronized
 
-from models.models import *
-from utils.datasets import *
-from utils.general import *
+from yolor.models.models import *
+from yolor.utils.datasets import *
+from yolor.utils.general import *
 from datetime import datetime
 
 class Detect:

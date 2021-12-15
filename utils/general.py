@@ -17,9 +17,9 @@ import numpy as np
 import torch
 import yaml
 
-from utils.google_utils import gsutil_getsize
-from utils.metrics import fitness, fitness_p, fitness_r, fitness_ap50, fitness_ap, fitness_f   
-from utils.torch_utils import init_torch_seeds
+from yolor.utils.google_utils import gsutil_getsize
+from yolor.utils.metrics import fitness, fitness_p, fitness_r, fitness_ap50, fitness_ap, fitness_f   
+from yolor.utils.torch_utils import init_torch_seeds
 
 # Set printoptions
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
@@ -356,7 +356,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
     return output
 
 
-def strip_optimizer(f='weights/best.pt', s=''):  # from utils.general import *; strip_optimizer()
+def strip_optimizer(f='weights/best.pt', s=''):  # from yolor.utils.general import *; strip_optimizer()
     # Strip optimizer from 'f' to finalize training, optionally save as 's'
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
