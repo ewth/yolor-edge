@@ -349,7 +349,8 @@ class Detect:
 
         webcam_source = self.webcam_source
         verbose = self.mode_verbose
-        
+        half = self._half_mode
+
         if verbose:
             self.display("Running in verbose mode")
             
@@ -395,30 +396,30 @@ class Detect:
         stats_images = 0
         stats_detections = 0
 
-        output_path = str(Path(output_path).joinpath(run_name))
-
         stats_base_string = [
-            f"yolor-edge run: {run_name}"
-            f"Algorithm: YOLOR; Model: '{model_name}'; Inf. Size {inference_size}px",
+            f"yolor-edge run: {self.run_name}"
+            f"Algorithm: YOLOR; Model: '{self.model_name}'; Inf. Size {inference_size}px",
             f"Thresh: Conf {conf_thres:.3f}; IoU {iou_thres:.3f}",
-            f"System: {self.get_system_name()}; Device: {device.type}:{use_device}"
+            f"System: {self.system_name}; Device: {device.type}:{use_device}"
         ]
-        stats_base_string = "\n".join(stats_base_string)
 
         if classes_restrict:
-            stats_base_string += " / Only: "
+            restricted_classes = []
             for cls in classes_restrict:
+                # @todo: not sure why "if cls in names:"" doesn't work here?
                 if cls <= len(names):
-                    stats_base_string += names[cls] + " "
+                    restricted_classes.append(names[cls])
                 else:
-                    stats_base_string += f" cls{cls:d}"
+                    restricted_classes.append(str(cls))
 
+            if len(restricted_classes):
+                stats_base_string.append("; ".join(restricted_classes))
+
+
+        # @todo: cleanup this chaotic mess of variables.
         frames_counted = 0
         detect_count = 0
         avg_conf = inst_fps = run_time  = 0
-
-        frame_stats_updated_at = 0
-
         video_src_width = video_src_height = 0
         running_classes = []
         running_conf = []
@@ -550,6 +551,7 @@ class Detect:
                         print("No detections")
 
 
+                # @todo: refactor!
                 # Print summary stats on image
                 if (save_img or view_img) and display_info and this_frame_count > 1:
                     # Display stats on image
@@ -563,7 +565,6 @@ class Detect:
                     inst_detected_classes = list(set(inst_detected_classes))
                     inst_detected_classes.sort()
                     inst_detected_names = [names[x] for x in inst_detected_classes]
-
 
                     new_running_classes = running_classes + inst_detected_classes
                     new_running_classes = list(set(new_running_classes))
@@ -594,22 +595,12 @@ class Detect:
                             inst_fps = frames_counted / frame_time
                             frames_counted = 0
 
-
                     text_scale_factor = 1 if not video_resize else 1/video_resize_factor
-                    # long_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam rhoncus ultricies ligula in pulvinar. In cursus nec ante eu volutpat. Ut a vulputate leo. Cras feugiat maximus quam, nec fringilla mi iaculis eget. Nam luctus, ipsum et feugiat vehicula, est sem consequat diam, at luctus velit ante quis velit. Donec in turpis id ex tempus tincidunt. Pellentesque eget dolor eget lectus aliquam interdum. Cras aliquam porttitor tempus. Nam porta in nibh ultricies tristique. Suspendisse vel nibh ut sapien blandit molestie. Vivamus et ex vestibulum risus sagittis congue facilisis vel massa. Nam hendrerit efficitur ante nec vulputate. Nulla quis egestas magna."
-                    # plot_text_with_border(x=10,y=100, img=im0, label = 'Some unscaled text')
-                    # plot_text_with_border(x=10,y=200, img=im0, label = 'Some unscaled Bold Text', text_bold=True)
-                    # plot_text_with_border(x=10,y=300, img=im0, label = 'Unscaled: ' + long_string)
-                    # plot_text_with_border(x=10,y=400, img=im0, label = 'Some scaled text', scale_factor=text_scale_factor)
-                    # plot_text_with_border(x=10,y=500, img=im0, label = 'Scaled: ' + long_string, scale_factor=text_scale_factor)
-                    # plot_text_with_border(x=10,y=600, img=im0, label = 'Scaled+Bold: ' + long_string, scale_factor=text_scale_factor, text_bold=True)
-                    # plot_text_with_border(x=10,y=700, img=im0, label = 'Some Bold Text', text_bold=True, scale_factor=text_scale_factor)
                     
                     if base_text_size is None:
                         # Just using W as it's a big character
                         # @todo: find a good "standard" character for non-mono fonts
                         base_text_size = cv2.getTextSize("W", 0, 1, 3)
-                        # (base_text_w, base_text_h), base_text_baseline = base_text_size
 
                     plot_text_with_border(img=im0, starting_row = 1, starting_column=1, base_text_size = base_text_size, label = 'yolor-edge / E. Thompson / 2021', scale_factor = text_scale_factor, text_bold=True)
 
@@ -639,45 +630,9 @@ class Detect:
                     stats_bottom.append(f"Avg. Conf: {avg_conf*100:.2f}")
                     plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, base_text_size = base_text_size, label = stats_top, scale_factor=text_scale_factor)
 
-
-                        # run_time = (datetime.now() - time_start).total_seconds()
-                        # print_string += f"Run Time: %.1fs" % (run_time)
-                    # if fps is not None and fps >= 0.01:
-                        #print_string += "\nFPS: %.2f" % fps
-                    # plot_text_with_border(stat_left,stat_top+(stat_incr*2), im0, print_string, scale_factor=text_scale_factor)
-
-                    # Calculate rough FPS
-
-                    # if image_mode:
-                    #     frames_halt = time.time() - frames_time
-                    #     frames_time = time.time()
-                    #     fps = frames_counted / frames_halt
-                    #     self.display(f"FPS: {fps:.2f}")
-                    # else:
-                    #     if frames_counted > 10:
-                    #         frames_halt = time.time() - frames_time
-                    #         frames_time = time.time()    
-                    #         fps = frames_counted / frames_halt
-                    #         self.display(f"FPS: {fps:.2f}")
-                    #         frames_counted = 0
-                            
-
-                    # Update display based on detections
-                    # No detections: red box
-                    # Detections: green box with number of humans detected
-                    # if human_detections < 1:
-                    #     cv2.rectangle(im0, (0, 0), (30, 20), (0, 0, 255), -1, lineType=line_type)
-                    # else:
-                    #     cv2.rectangle(im0, (0, 0), (30, 20), (0, 255, 0), -1, lineType=line_type)
-                    #     # Changing image labelling to suit project
-                    #     # plot_text_with_border((0,20), im0, "Inf. Time: %.3fs" % inference_time)
-                    #     cv2.putText(im0, str(human_detections).rjust(4, ' '), (0,15), 0, 0.4, (0, 0, 0), thickness=2, lineType=line_type)
-                    #     # plot_text_with_border((0,40), im0, "Humans: %d" % detect_count)
-                    #     # plot_text_with_border((0,60), im0, "Conf.: %.1f" % (avg_conf * 100))
-
-                # Stream results
+                # Display results
                 if view_img:
-                    cv2.imshow('yolor-edge', im0)
+                    cv2.imshow(self.run_name, im0)
                     # if cv2.waitKey(1) == ord('q'):  # q to quit
                         # raise StopIteration
 
