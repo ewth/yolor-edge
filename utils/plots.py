@@ -76,43 +76,21 @@ def plot_text_with_border(
     text_colour = (255,255,255),
     border_colour=(0,0,0),
     line_type=cv2.LINE_AA,
-    font_scale = None,
-    text_bold = False,
-    scale_factor = 1,
+    font_scale = 0.5,
     line_height = 20,
     font_face = 0,
-    base_text_size = [],
-    from_bottom = False
+    from_bottom = False,
+    print_info = False
 ):
     
-    if font_scale is None:
-        font_scale = 1
-
     text_thickness = font_scale * 2.25
+    border_thickness = int(round(text_thickness * 2))
+    text_thickness = int(round(text_thickness))
 
-    if text_bold:
-        font_scale = 1.55 * font_scale
-        text_thickness = 1.55 * text_thickness
-        border_thickness = 2 * text_thickness
-    else:
-        border_thickness = 2 * text_thickness
-
-    border_thickness = int(round(border_thickness * scale_factor))
-    text_thickness = int(round(text_thickness * scale_factor))
-
-    font_scale *= scale_factor
-
-    # base_text_w = base_text_w * scale_factor
-    # base_text_h = base_text_h * scale_factor
-    # base_text_baseline = base_text_baseline * scale_factor
-
-    line_height = line_height * scale_factor
     
-    base_text_h = 20
-    base_text_w = 20
     # Work out relative positioning
-    starting_x = base_text_w * starting_column
-    starting_y = base_text_h * starting_row
+    starting_x = 10 * starting_column
+    starting_y = 20 * starting_row
 
     # @todo: Work out starting point for scaling.
     # A reference to the img (which is passed by reference) seems crucial for thread safety?
@@ -127,6 +105,7 @@ def plot_text_with_border(
     except:
         print("Issue looking at img shape")
 
+
     label_split = label.split("\n")
 
     if from_bottom:
@@ -139,23 +118,9 @@ def plot_text_with_border(
 
     line_n = 0
     for line in label_split:
-        y += int(line_height)
+        y += int(2*line_height)
         org = (x, y)
         line_n += 1
-
-        if line_n == 1:
-            line = f"(sc:{scale_factor:.2f}) {line}"
-
-        # @todo: scale down if extends beyond image width
-        # @todo: only do width for now, but maybe look at height in the future
-        # (text_w, text_h), text_baseline = cv2.getTextSize(line, font_face, font_scale, text_thickness)
-
-        # if not size_flagged and im_width is not None:
-        #     if (x + text_w) > im_width:
-        #         size_flagged = True
-
-        #     if (y + text_baseline + text_h):
-        #         size_flagged = True
 
         cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=border_colour, thickness=border_thickness, lineType=line_type)
         cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=text_colour, thickness=text_thickness, lineType=line_type)
