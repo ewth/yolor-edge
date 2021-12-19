@@ -30,6 +30,7 @@ class Detect:
     target_device: str
     inference_size: int
     run_name: str
+    run_id: str
 
     webcam_source: bool
 
@@ -52,6 +53,7 @@ class Detect:
     save_video_frames: bool
     capture_nth_frame: int
     save_nth_frame: int
+    append_run_id_to_files: bool
 
     display_bounding_boxes: bool
     display_bounding_box_labels: bool
@@ -99,6 +101,7 @@ class Detect:
         source_path: str,
         target_device: str,
         run_name: str,
+        run_id: str,
         model_weights = "/resources/weights/yolor/yolor_p6.pt",
         model_config = "/yolor-edge/yolor/cfgyolor_p6.cfg",
         model_name = "",
@@ -119,6 +122,7 @@ class Detect:
         save_video_frames = False,
         capture_nth_frame = 4,
         save_nth_frame = 20,
+        append_run_id_to_files = False,
 
         display_images = False,
         display_bounding_boxes = False,
@@ -153,6 +157,7 @@ class Detect:
         self.output_path = output_path
         self.target_device = target_device
         self.run_name = run_name
+        self.run_id = run_id
 
         # Model details
         self.model_weights = model_weights
@@ -177,6 +182,7 @@ class Detect:
         self.display_images = display_images
         self.capture_nth_frame = capture_nth_frame
         self.save_nth_frame = save_nth_frame
+        self.append_run_id_to_files = append_run_id_to_files
 
         # Rendering image stuff
         self.display_stats = display_stats
@@ -327,7 +333,8 @@ class Detect:
         Run inference according to setup. The main event.
         """
         
-        print("[yolor.detect] Running inference")
+        inference_size = self.inference_size
+        print(f"[yolor.detect] Running inference at {inference_size}px")
         if not self._have_setup:
             print("Run setup first.")
             return
@@ -348,15 +355,21 @@ class Detect:
 
         model = self._model
 
-        source, output_path, classes_restrict = \
+
+        # @todo: shallow copy lists etc rather than by ref
+        source_path, output_path, classes_restrict = \
             self.source_path, self.output_path, self.classes_restrict
 
-        inference_size, capture_nth_frame, names, conf_thres, iou_thres = \
-            self.inference_size, self.capture_nth_frame, self.class_names, self.confidence_threshold, self.iou_threshold
+        capture_nth_frame, conf_thres, iou_thres = \
+            self.capture_nth_frame, self.confidence_threshold, self.iou_threshold
 
-        augment, agnostic_nms, display_bb, display_info, save_frames, save_txt = \
-            self.mode_augment, self.nms_is_agnostic, self.display_bounding_boxes, self.display_stats, self.save_video_frames, self.save_text
+        class_names = self.class_names.copy()
 
+        augment, agnostic_nms,  display_stats, save_frames, save_txt = \
+            self.mode_augment, self.nms_is_agnostic, self.display_stats, self.save_video_frames, self.save_text
+
+        display_bounding_boxes, display_bounding_box_labels = self.display_bounding_boxes, self.display_bounding_box_labels
+        
         save_img, view_img = self.save_images, self.display_images
 
         webcam_source = self.webcam_source
@@ -371,12 +384,16 @@ class Detect:
         if webcam_source:
             save_path = str(Path(output_path).joinpath('webcam_output.mp4'))
             if verbose:
-                print(f"Using webcam as source, save_path: {save_path}")
+                print(f"Using webcam as source")
         else:
             save_path = str(Path(output_path))
-            if verbose:
-                print(f"Saving images to path {save_path}")
 
+        if verbose:
+            print(f"Saving to path: {save_path}")
+        run_name = self.run_name
+        run_id = self.run_id
+        append_run_id_to_files = self.append_run_id_to_files
+        
         device = self._device
         if verbose:
             print(f"Using device {device}")
@@ -397,9 +414,9 @@ class Detect:
             view_img = True
             cudnn.benchmark = True  # set True to speed up constant image size inference
             capture_nth_frame = capture_nth_frame if capture_nth_frame > 0 else 4
-            dataset = LoadStreams(source, img_size=inference_size, nth_frame=capture_nth_frame)
+            dataset = LoadStreams(source_path, img_size=inference_size, nth_frame=capture_nth_frame)
         else:
-            dataset = LoadImages(source, img_size=inference_size, auto_size=64, print_output=False)
+            dataset = LoadImages(source_path, img_size=inference_size, auto_size=64, print_output=False)
 
         # colors = [[0, 255, 0]]
         colours = self.get_bounding_box_colours()
@@ -419,8 +436,8 @@ class Detect:
             restricted_classes = []
             for cls in classes_restrict:
                 # @todo: not sure why "if cls in names:"" doesn't work here?
-                if cls <= len(names):
-                    restricted_classes.append(names[cls])
+                if cls <= len(class_names):
+                    restricted_classes.append(class_names[cls])
                 else:
                     restricted_classes.append(str(cls))
 
@@ -430,31 +447,28 @@ class Detect:
         stats_bottom_base = "\n".join(list(filter(None,stats_bottom_base)))
 
         # @todo: cleanup this chaotic mess of variables.
-        frames_counted = 0
+        source_frames_count = 0
         detect_count = 0
-        avg_conf = inst_fps = run_time  = 0
-        video_src_width = video_src_height = 0
+        source_video_w = source_video_h = 0
         running_classes = []
+        running_class_names = []
         running_conf = []
-        running_names = []
-        running_detect_count = source_frame_count = running_frame_count = 0
-        prev_frame = 0
-        video_resize_factor = 1
-        video_resize = False
-        videos_to_resize = []
+        running_detect_count = source_frame_current = running_frame_count = 0
+        source_frame_prev = 0
         iteration_start = time.time()
         last_frame_check = None
-        text_scale_factor = 0
-        source_name = None
-        video_mode = False
-
-        base_text_size = None
-
+        source_path_name = None
         source_vid_writing = None
         frame_save_path = None
         source_number = 0
         last_frame_saved = None
-        current_frame = 0
+        source_frame_current = 0
+        font_scale_h = font_scale = 0
+        source_calculated_fps = 0
+        video_mode = False
+
+        avg_conf = inst_avg_conf = 0
+
 
         # Run inference
         t0 = time.time()
@@ -473,6 +487,8 @@ class Detect:
 
             stats_images += 1
 
+            
+
             # Inference
             t1 = time_synchronized()
             pred = model(img, augment=augment)[0]
@@ -490,33 +506,31 @@ class Detect:
                 pred = apply_classifier(pred, modelc, img, im0s)
 
             inst_detected_classes = []
-            frames_counted += 1
-            source_frame_count += 1
+            source_frames_count += 1
+            source_frame_current += 1
             running_frame_count += 1
             this_detect_count = 0
 
             if not webcam_source:
-                current_frame = dataset.frame
-                if current_frame == 0 or current_frame < prev_frame:
-                    frames_counted = 0
+                source_frame_current = dataset.frame
+                if source_frame_current == 0 or source_frame_current < source_frame_prev:
+                    source_frames_count = 0
                     frame_save_path = None
-                    source_name = None
-                    video_mode = not (dataset.mode == 'images')
+                    source_path_name = None
                     source_number += 1
                     self.display("New source, resetting stats")
                     iteration_start = last_frame_check = time_synchronized()
-                    source_frame_count = 0
-                    source_frames = dataset.nframes
+                    source_frame_current = 0
                     running_classes = []
                     inst_detected_classes = []
                     inst_detected_conf = []
                     running_conf = []
-                    running_names = []
-                    avg_conf = run_time = inst_fps = 0.
-                    avg_nms = avg_inf = 0.
-                    text_scale_factor = 0
+                    font_scale = 0
+                    video_mode = not dataset.mode == 'images'
+                    source_frames_total = dataset.nframes
+                    source_calculated_fps = 0
 
-            prev_frame = current_frame
+            source_frame_prev = source_frame_current
             # Process detections
             for i, det in enumerate(pred):  # detections per image
                 if webcam_source:  # batch_size >= 1
@@ -528,8 +542,12 @@ class Detect:
                 gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
                 detections = det is not None and len(det)
 
-                source_name = Path(p).name
-                save_path = str(Path(output_path).joinpath(source_name))
+                source_path_name = Path(p).name
+                if append_run_id_to_files:
+                    save_path = str(Path(output_path).joinpath(Path(p).stem + '-' + run_id + Path(p).suffix))
+                else:
+                    save_path = str(Path(output_path).joinpath(source_path_name))
+                
                 detect_count = len(det)
                 inst_detected_conf = []
                 inst_detected_classes = []
@@ -553,37 +571,34 @@ class Detect:
                             cls_int = int(cls)
                             inst_detected_conf.append(float(conf))
                             inst_detected_classes.append(cls_int)
-                            if display_bb:  # Add bbox to image
-                                # label = "Human {conf100:.0f}%".format(name=names[int(cls)], conf100=conf*100)
-                                # c1, c2 = (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3])
+                            if display_bounding_boxes:  # Add bbox to image
                                 # @todo: put in middle of bounding box
-                                # x, y = int(c1[0] + (c2[0] - c1[0])/2), int(c1[1] + (c2[1] - c1[1])/2)
-                                # cv2.putText(im0, label, (int(x), int(y)), 0, 1 / 3, (0,255,0), thickness=1, lineType=line_type)
-                                #label = f"{names[cls_int].title()} {conf*100:.2f}%"
-                                label = names[cls_int].title()
-                                # plot_text_with_border((x,y), im0, label, (0,255,0))
+                                if display_bounding_box_labels:
+                                    label = class_names[cls_int].title()
+                                else:
+                                    label = None
                                 plot_one_box(xyxy, im0, label=label, color=colours[cls_int], line_thickness=2, text_color=[0,0,0], line_type=cv2.LINE_8)
                             #if video_resize:
                                     # im0 = cv2.resize(im0, (video_resize_width, video_resize_height), fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
                 else:
                     if verbose:
-                        print(f"{current_frame} No detections")
+                        print(f"{source_frame_current} No detections")
 
 
                 # @todo: refactor!
                 # Print summary stats on image
-                if (save_img or view_img) and display_info and source_frame_count > 1:
+                if (save_img or view_img) and display_stats:
                     running_detect_count += detect_count
                     inst_detected_classes = list(set(inst_detected_classes))
                     inst_detected_classes.sort()
-                    inst_detected_names = [names[x] for x in inst_detected_classes]
+                    inst_detected_names = [class_names[x] for x in inst_detected_classes]
 
                     new_running_classes = running_classes + inst_detected_classes
                     new_running_classes = list(set(new_running_classes))
                     if len(new_running_classes) > len(running_classes):
                         running_classes = new_running_classes
                         running_classes.sort()
-                        running_names = [names[x] for x in running_classes]
+                        running_class_names = [class_names[x] for x in running_classes]
 
                     inst_avg_conf = 0
                     if len(inst_detected_conf):
@@ -592,51 +607,69 @@ class Detect:
                         avg_conf = np.average(running_conf)
                     
                     right_now = time_synchronized()
-                    run_time = (right_now - iteration_start)
+                    source_run_time = (right_now - iteration_start)
                     
-                    if frames_counted >= 5:
+                    if source_frames_count >= 5:
                         frame_time = time_synchronized()
                         if last_frame_check is not None:
                             frame_time = frame_time - last_frame_check
                             if frame_time > 0:
                                 last_frame_check = time_synchronized()
-                                inst_fps = frames_counted / frame_time
-                                frames_counted = 0
+                                source_calculated_fps = source_frames_count / frame_time
+                                source_frames_count = 0
 
-                    if text_scale_factor == 0:
-                        text_scale_factor = 1
+                    if font_scale == 0:
                         im_shape = im0.shape
-                        print(im_shape)
-                        text_scale_factor = (im_shape[0] * im_shape[1]) / (1920*1080)
-                        
-                    
-                    plot_text_with_border(img=im0, starting_row = 1, starting_column=1, label = 'yolor-edge / E. Thompson / 2021', scale_factor = text_scale_factor, text_bold=True)
+                        im_w = im_shape[1]
 
+                        font_scale = 0.45
+                        font_scale_h = 0.6
+
+                        if im_w < 1024:
+                            font_scale_h = 0.48
+                            font_scale = 0.45
+                        elif im_w <= 1280:
+                            font_scale_h = 0.6
+                            font_scale = 0.45
+                        elif im_w <= 1440:
+                            font_scale_h = 0.66
+                            font_scale = 0.45
+                        elif im_w <=  2048:
+                            font_scale_h = 0.66
+                            font_scale = 0.5
+                        else:
+                            font_scale_h = 0.75
+                            font_scale = 0.55
+
+
+                    plot_text_with_border(img=im0, starting_row = 1, starting_column=1, label = 'yolor-edge / E. Thompson / 2021', font_scale = font_scale_h, font_face = 2)
                     stats_top = ""
                     stats_top += "Inst.:\n"
                     stats_top += f" Detections: {detect_count:d}\n"
                     stats_top += f" Classes: {', '.join(inst_detected_names)}\n"
                     stats_top += f" Avg. Conf: {inst_avg_conf*100:.2f}%\n"
-                    if inst_fps > 0:
-                        stats_top += f" FPS: {inst_fps:.2f}\n"
+                    if source_calculated_fps > 0:
+                        stats_top += f" FPS: {source_calculated_fps:.2f}\n"
                     else:
                         stats_top += f" FPS: (calc)\n"
                     stats_top += f" Inf. Time: {(1E3 * inference_time):.3f}ms\n"
                     stats_top += f" NMS Time: {(1E3 * nms_time):.3f}ms\n"
-                    plot_text_with_border(img=im0, starting_row=4, starting_column=2, label = stats_top, scale_factor=text_scale_factor)
-                    stats_bottom = ""
-                    if video_mode:
-                        source_string = f"Source: '{source_name}'"
-                        if video_src_width > 0:
-                            source_string += f" {video_src_width}x{video_src_height}"
-                        stats_bottom += source_string + "\n"
-                        stats_bottom += f"Frame: {source_frame_count}/{source_frames}\n"
-                        stats_bottom += f"Runtime: {run_time:.2f}s\n"
+                    plot_text_with_border(img=im0, starting_row=4, starting_column=2, label = stats_top, font_scale = font_scale)
 
-                    stats_bottom += f"All Classes: {', '.join(running_names)}\n"
+
+                    stats_bottom = ""                    
+                    if video_mode:
+                        source_string = f"Source: '{source_path_name}'"
+                        if source_video_w > 0:
+                            source_string += f" {source_video_w}x{source_video_h}"
+                        stats_bottom += source_string + "\n"
+                        stats_bottom += f"Frame: {source_frame_current}/{source_frames_total}\n"
+                        stats_bottom += f"Runtime: {source_run_time:.2f}s\n"
+
+                    stats_bottom += f"All Classes: {', '.join(running_class_names)}\n"
                     stats_bottom += f"Avg. Conf: {avg_conf*100:.2f}\n"
                     stats_bottom += stats_bottom_base
-                    plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, label = stats_bottom, scale_factor=text_scale_factor)
+                    plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, label = stats_bottom, font_scale = font_scale)
 
                 # Display results
                 if view_img:
@@ -664,11 +697,11 @@ class Detect:
 
                             fourcc = 'mp4v'  # output video codec
                             video_src_fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                            video_src_width = vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-                            video_src_height = vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-                            video_src_width = int(video_src_width)
-                            video_src_height = int(video_src_height)
-                            vid_writer = cv2.VideoWriter(vid_path, cv2.VideoWriter_fourcc(*fourcc), video_src_fps, (video_src_width, video_src_height))
+                            source_video_w = vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+                            source_video_h = vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                            source_video_w = int(source_video_w)
+                            source_video_h = int(source_video_h)
+                            vid_writer = cv2.VideoWriter(vid_path, cv2.VideoWriter_fourcc(*fourcc), video_src_fps, (source_video_w, source_video_h))
                         vid_writer.write(im0)
 
                 if save_frames:
@@ -681,16 +714,16 @@ class Detect:
                     if save_nth_frame == 1 or save_nth_frame < 0:
                         save_frame = True
                     else:
-                        if save_nth_frame > 0 and (current_frame % save_nth_frame) == 0:
+                        if save_nth_frame > 0 and (source_frame_current % save_nth_frame) == 0:
                             save_frame = True
 
-                    if not save_frame and (last_frame_saved is None or current_frame < last_frame_saved):
+                    if not save_frame and (last_frame_saved is None or source_frame_current < last_frame_saved):
                         save_frame = True
 
                     if save_frame and frame_save_path is not None:
-                        self.display(f"Saving frame {current_frame}")
-                        last_frame_saved = current_frame
-                        frame_save_to = f"{frame_save_path}/frame-{current_frame:05d}.png"
+                        self.display(f"Saving frame {source_frame_current}")
+                        last_frame_saved = source_frame_current
+                        frame_save_to = f"{frame_save_path}/frame-{source_frame_current:05d}.png"
                         cv2.imwrite(frame_save_to, im0)
 
         if isinstance(vid_writer, cv2.VideoWriter):
