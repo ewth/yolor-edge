@@ -13,7 +13,9 @@ class DetectRun:
     version = "0.4"
 
     output_path_base = "/resources/inference/yolor-edge/output"
+    output_append_run = True
     source_path = "/resources/sources/detect-test/next-run"
+    # source_path = "0"
     
     yolor_model = "yolor_p6"
 
@@ -22,18 +24,26 @@ class DetectRun:
     confidence_threshold = 0.4
     iou_threshold = 0.5
 
+    display_stats = True
+    display_bounding_boxes = True
+    display_bounding_box_labels = True
+    display_percentage_decimal = False
+    mode_verbose = True
+    save_video_frames = False
+    save_images = True
+    save_nth_frame = 5
+    class_names_file = "/yolor-edge/data/coco-2017/coco.names"
     logging_path = "/resources/logs/yolor-edge"
     yolor_weights = f"/resources/weights/yolor/{yolor_model}.pt"
     yolor_config = f"/yolor-edge/yolor/cfg/{yolor_model}.cfg"
     target_device = "0"
-    logging_level = logging.DEBUG
     
 
 
     # Behind the scenes, no touchy
     _run_name: str
     _run_id: str
-    logger: None
+    _logger: None
     _log_path: Path
     _log_file: Path
 
@@ -44,8 +54,6 @@ class DetectRun:
         """
         Initialise an inference run
         """
-        self.logger = None
-
         uuid_str = str(uuid.uuid4()).split("-")
         run_id = uuid_str.pop()
         self._run_id = run_id
@@ -53,70 +61,89 @@ class DetectRun:
         self._run_name = run_name
 
         general_path_name = f"{self.name}_{self.version}"
+        self._logger = None
+        logger = self.logger()
 
-        logger = self.get_logger()
-
-        logger.info("Initialising YOLOR Detection...")
-        logger.info(f"Setting up run {run_name}...")
-
-
-        output_path = Path(self.output_path_base).joinpath(general_path_name).joinpath(run_id)
+        logger.info("Initialising yolor.detect...")
+        logger.info(f"Model: {self.yolor_model}, Weights: {self.yolor_weights}, Config: {self.yolor_config}")
+        output_path = Path(self.output_path_base).joinpath(general_path_name)
+        if self.output_append_run:
+            output_path=output_path.joinpath(run_id)
         if not output_path.exists():
             output_path.mkdir(parents=True)
+            logger.debug(f"Output path {str(output_path)} created")
+
 
         self._detect = yolor.detect.Detect(
-            output_path=output_path,
-            source_path=self.source_path,
-            target_device=self.target_device,
-            run_name = self._run_name,
-            model_weights = self.yolor_weights,
-            model_config = self.yolor_config,
-            inference_size=self.inference_size,
-            confidence_threshold=self.confidence_threshold,
-            iou_threshold=self.iou_threshold
+            run_name                    = self._run_name,
+            run_id = self._run_id,
+            #                                                               Old Arg
+            output_path                 = output_path,                      # output
+            source_path                 = self.source_path,                 # source
+            target_device               = self.target_device,               # device
+            model_weights               = self.yolor_weights,               # weights
+            model_config                = self.yolor_config,                # cfg
+            inference_size              = self.inference_size,              # img-size
+            confidence_threshold        = self.confidence_threshold,        # conf-thres
+            iou_threshold               = self.iou_threshold,               # iou-thres
+            class_names_file            = self.class_names_file,            # names
+            display_bounding_boxes      = self.display_bounding_boxes,      # display-bb
+            display_stats               = self.display_stats,               # display-info
+            display_bounding_box_labels = self.display_bounding_box_labels,
+            display_percent_decimal     = self.display_percentage_decimal,
+            save_video_frames           = self.save_video_frames,           # save-frames
+            save_nth_frame              = self.save_nth_frame,              # nth-frame
+            mode_verbose                = self.mode_verbose,                # verbose
+            save_images=self.save_images,
+            append_run_id_to_files=False
         )
-        logger.info("yolor.detect initialised")
+        logger.debug(f"yolor.detect initialised with run {self._detect.run_name}")
+        logger.debug("Running setup...")
+        self._detect.setup()
+        logger.debug("Done.")
 
-    def get_logger(self, force_new = False) -> logging.Logger:
+    def logger(self, force_new = False) -> logging.Logger:
         """
         Return existing or instantiate new Logger
         """
-        if force_new or not self.logger:
+        if force_new or self._logger is None:
             log_path = Path(self.logging_path)
             if not log_path.exists():
                 log_path.mkdir(parents=True, exist_ok=True)
 
             log_file = log_path.joinpath(f"run-{self._run_id}.log")
-            logger = logging.getLogger(f"yolor-edge")
+            logger = logging.getLogger(f"yolor-edge.detectrun")
 
             # Damn the logging cookbook is cool
             # https://docs.python.org/3/howto/logging-cookbook.html#logging-cookbook
-            logger.setLevel(logging.DEBUG)
             fh = logging.FileHandler(str(log_file))
             fh.setLevel(logging.DEBUG)
             ch = logging.StreamHandler()
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             ch.setLevel(logging.INFO)
+
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             fh.setFormatter(formatter)
             ch.setFormatter(formatter)
-            logger.addHandler(fh)
             logger.addHandler(ch)
-            logger.info(f"Logging to file {str(log_file)}")
+
+            logger.addHandler(fh)
+            logger.debug("Logging started.")
             logger.debug(f"Logging has been setup for console and file {str(log_file)}")
             self._log_path = log_path
             self._log_file = log_file
-            self.logger = logger
-        return self.logger 
+            self._logger = logger
+        return self._logger 
 
     def go(self):
         """
         Start the run
         """
+
         if self._detect is None:
-            logging.critical("Detect class not loaded properly?")
+            self.logger().critical("Detect class not loaded properly?")
             return
 
-        logging.info(f"Starting run {self._run_name}. Get ready for launch...")
+        self.logger().info(f"Starting run {self._run_name}. Get ready for launch...")
 
         # @todo: this may go pear-shaped with all detection's multithreading. Cross your fingers.
         result = self._detect.inference()
