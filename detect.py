@@ -662,7 +662,7 @@ class Detect:
                     stats_bottom += f" Runtime: {source_run_time:.2f}s\n"
 
                     stats_bottom += f" Objects: {', '.join(source_all_classes_names)}\n"
-                    stats_bottom += f" Detections: {source_detections:d}\n"
+                    # stats_bottom += f" Frames w/ Detections: {source_detections:d}\n"
                     stats_bottom += f" Avg. Confidence: {source_avg_conf*100:.2f}%\n"
                     stats_bottom += f" Processing Time: {processing_time:.2f}s\n"
                     stats_bottom += stats_bottom_base
