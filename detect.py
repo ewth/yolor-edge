@@ -639,7 +639,7 @@ class Detect:
                     add_text_heading(im0, "yolor-edge / Ewan Thompson / 2021", font_scale)
 
                     # plot_text_with_border(img=im0, starting_row = 1, starting_column=1, label = 'yolor-edge / Ewan Thompson / 2021', font_scale = font_scale_h, font_face = 2)
-                    stats_top = f"{stats_top_base}\n"
+                    stats_top = ""
                     stats_top += "Instantaneous:\n"
                     stats_top += f" Detections: {detect_count:d}\n"
                     stats_top += f" Objects: {', '.join(inst_detected_names)}\n"
@@ -653,10 +653,11 @@ class Detect:
                     # plot_text_with_border(img=im0, starting_row=4, starting_column=2, label = stats_top, font_scale = font_scale)
                     add_text(im0, stats_top, font_scale, 3, 1)
 
-                    stats_bottom = f"Source: '{source_path_name}'\n"
+                    stats_bottom = f"{stats_top_base}\n"
+                    stats_bottom += f"Source: '{source_path_name}'\n"
 
                     stats_bottom += f" Size: {source_video_w}x{source_video_h}\n"
-                    stats_bottom += f" FPS: {video_src_fps}\n"
+                    stats_bottom += f" FPS: {video_src_fps:.3f}\n"
                     stats_bottom += f" Frame: {source_frame_current}/{source_frames_total-1}\n"
                     stats_bottom += f" Runtime: {source_run_time:.2f}s\n"
 
