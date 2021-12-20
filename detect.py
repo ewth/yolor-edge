@@ -537,7 +537,7 @@ class Detect:
                     font_scale_calculated = False
 
                     # Added 0.5
-                    source_all_classes_names = []
+                    source_all_classes_names = ['-']
                     video_src_fps = vid_cap.get(cv2.CAP_PROP_FPS)
                     source_run_time = 0
                     source_time_start = time_synchronized()
@@ -613,9 +613,12 @@ class Detect:
                         font_scale = calc_text_size(im0)
 
                     running_detect_count += detect_count
-                    inst_detected_classes = list(set(inst_detected_classes))
-                    inst_detected_classes.sort()
-                    inst_detected_names = [class_names[x] for x in inst_detected_classes]
+                    if len(inst_detected_classes) > 0:
+                        inst_detected_classes = list(set(inst_detected_classes))
+                        inst_detected_classes.sort()
+                        inst_detected_names = [class_names[x] for x in inst_detected_classes]
+                    else:
+                        inst_detected_names = ['-']
 
                     new_running_classes = running_classes + inst_detected_classes
                     new_running_classes = list(set(new_running_classes))
