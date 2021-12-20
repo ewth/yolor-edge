@@ -5,10 +5,11 @@ import cv2
 from numpy.lib.function_base import average
 import torch
 import torch.backends.cudnn as cudnn
+from utils.fontscaling import write_heading
 
 from yolor.utils.datasets import LoadStreams, LoadImages
 from yolor.utils.general import (non_max_suppression, apply_classifier, scale_coords, xyxy2xywh)
-from yolor.utils.plots import plot_one_box, plot_text_with_border
+from yolor.utils.plots import add_text, add_text_heading, calc_text_size, plot_one_box
 from yolor.utils.torch_utils import select_device, load_classifier, time_synchronized
 
 from yolor.models.models import *
@@ -86,7 +87,7 @@ class Detect:
     _model = None
     _model_name_loaded = None
     _have_loaded_model = False
-    _class_bounding_box_colours = [[0, 255, 0], [41, 126, 255], [0, 0, 229], [255, 102, 0], [24, 24, 153], [13, 105, 166], [255, 169, 41], [17, 57, 217], [77, 0, 191], [35, 217, 217], [242, 0, 145], [217, 35, 180], [217, 71, 35], [166, 82, 27], [97, 242, 0], [41, 169, 255], [204, 255, 0], [50, 15, 191], [191, 86, 15], [242, 0, 97], [0, 0, 217], [121, 15, 191], [15, 15, 191], [179, 29, 149], [255, 84, 41], [255, 255, 0], [166, 110, 27], [191, 191, 31], [0, 255, 255], [145, 242, 0], [166, 27, 166], [204, 82, 0], [242, 0, 242], [0, 153, 255], [122, 153, 0], [255, 126, 41], [51, 0, 255], [41, 255, 84], [0, 255, 204], [59, 29, 178], [0, 48, 242], [166, 27, 54], [31, 191, 191], [29, 29, 178], [177, 17, 217], [0, 191, 38], [18, 230, 187], [153, 153, 0], [177, 217, 17], [33, 0, 166], [31, 191, 159], [166, 44, 13], [41, 84, 255], [97, 17, 217], [0, 194, 242], [0, 102, 255], [31, 191, 127], [149, 29, 179], [0, 217, 43], [230, 103, 18], [99, 0, 166], [217, 35, 144], [31, 159, 191], [137, 217, 17], [255, 153, 0], [105, 166, 13], [41, 0, 204], [54, 166, 27], [31, 127, 191], [217, 130, 0], [153, 122, 0], [63, 191, 31], [0, 31, 153], [212, 41, 255], [166, 66, 0], [255, 204, 0], [191, 15, 86], [13, 166, 105], [41, 41, 255], [71, 35, 217], [24, 153, 76], [31, 191, 95], [127, 24, 153], [84, 41, 255], [61, 18, 229], [13, 166, 44], [40, 12, 153], [0, 36, 178], [138, 0, 229], [242, 48, 0], [126, 41, 255], [0, 0, 166], [0, 0, 255], [191, 15, 191], [191, 121, 15], [230, 0, 0], [191, 156, 15], [166, 0, 99], [95, 191, 31], [102, 0, 255], [217, 35, 71], [191, 15, 121], [230, 61, 18], [64, 242, 19], [24, 76, 153], [191, 50, 15], [31, 95, 191], [18, 230, 145], [0, 255, 153], [153, 50, 24], [230, 0, 230], [89, 29, 178], [0, 153, 153], [217, 144, 35], [35, 35, 217], [204, 41, 0], [153, 0, 122], [24, 50, 153], [0, 133, 166], [66, 0, 166], [242, 0, 194], [0, 130, 217], [166, 0, 33], [169, 41, 255], [217, 108, 35], [0, 66, 166], [0, 242, 242], [39, 242, 120], [166, 99, 0], [230, 37, 114], [191, 15, 15], [242, 0, 0], [159, 191, 31], [31, 63, 191], [13, 166, 135], [97, 217, 17], [0, 87, 217], [82, 166, 27]]
+    _class_bounding_box_colours = [[0, 255, 0], [255, 204, 0], [255, 173, 102], [148, 101, 59], [184, 75, 59], [219, 88, 114], [255, 61, 165], [148, 0, 79], [184, 29, 163], [193, 88, 219], [141, 41, 255], [69, 0, 148], [122, 102, 255], [71, 59, 148], [184, 159, 59], [184, 109, 44], [255, 87, 61], [148, 20, 0], [184, 0, 37], [255, 102, 184], [255, 20, 224], [148, 47, 134], [153, 29, 184], [173, 102, 255], [52, 20, 255], [63, 44, 184], [255, 130, 20], [148, 69, 0], [255, 122, 102], [255, 0, 51], [184, 44, 72], [184, 73, 132], [255, 102, 235], [208, 20, 255], [130, 59, 148], [109, 44, 184], [87, 61, 255], [20, 0, 148], [41, 52, 255], [0, 9, 184], [59, 64, 148], [53, 86, 219], [41, 116, 255], [29, 83, 184], [41, 148, 255], [29, 106, 184], [35, 92, 148], [0, 119, 184], [59, 117, 148], [0, 147, 184], [0, 242, 255], [41, 255, 234], [12, 148, 134], [102, 110, 255], [59, 65, 184], [41, 84, 255], [73, 95, 184], [82, 142, 255], [73, 112, 184], [82, 168, 255], [73, 129, 184], [20, 173, 255], [59, 140, 184], [20, 208, 255], [73, 162, 184], [102, 247, 255], [88, 219, 206], [53, 61, 219], [12, 19, 148], [102, 133, 255], [35, 58, 148], [0, 77, 219], [35, 75, 148], [0, 110, 219], [0, 74, 148], [82, 194, 255], [12, 100, 148], [102, 224, 255], [12, 121, 148], [59, 177, 184], [0, 184, 165]]
     _logger = None
 
     lock = None
@@ -250,7 +251,7 @@ class Detect:
         Return list of colours (key = class) for bounding boxes/labels
         """
 
-        return self._class_bounding_box_colours
+        return self._class_bounding_box_colours.copy()
 
     def load_model(self):
         """
@@ -425,8 +426,9 @@ class Detect:
         stats_images = 0
         stats_detections = 0
 
+        stats_top_base =  f"Run: {self.run_name}"
+        
         stats_bottom_base = [
-            f"yolor-edge run: {self.run_name}",
             f"Algorithm: YOLOR; Model: '{self.model_name}'; Inf. Size {inference_size}px",
             f"Thresh: Conf {conf_thres:.3f}; IoU {iou_thres:.3f}",
             f"System: {self.system_name}; Device: {device}",
@@ -442,16 +444,18 @@ class Detect:
                     restricted_classes.append(str(cls))
 
             if len(restricted_classes):
-                stats_bottom_base.append("; ".join(restricted_classes))
+                stats_bottom_base.append("Only Classes:" + "; ".join(restricted_classes))
 
         stats_bottom_base = "\n".join(list(filter(None,stats_bottom_base)))
+
+        source_time_start = time.time()
 
         # @todo: cleanup this chaotic mess of variables.
         source_frames_count = 0
         detect_count = 0
         source_video_w = source_video_h = 0
         running_classes = []
-        running_class_names = []
+        source_all_classes_names = []
         running_conf = []
         running_detect_count = source_frame_current = running_frame_count = 0
         source_frame_prev = 0
@@ -463,12 +467,15 @@ class Detect:
         source_number = 0
         last_frame_saved = None
         source_frame_current = 0
-        font_scale_h = font_scale = 0
-        source_calculated_fps = 0
+        source_fps_calculated = 0
         video_mode = False
 
-        avg_conf = inst_avg_conf = 0
+        source_avg_conf = inst_avg_conf = 0
 
+        font_scale_calculated = False
+        font_scale = {}
+
+        source_data_checked = False
 
         # Run inference
         t0 = time.time()
@@ -486,8 +493,6 @@ class Detect:
                 img = img.unsqueeze(0)
 
             stats_images += 1
-
-            
 
             # Inference
             t1 = time_synchronized()
@@ -513,13 +518,13 @@ class Detect:
 
             if not webcam_source:
                 source_frame_current = dataset.frame
-                if source_frame_current == 0 or source_frame_current < source_frame_prev:
+                if not source_data_checked or source_frame_current == 0 or source_frame_current < source_frame_prev:
+                    source_data_checked = True
                     source_frames_count = 0
                     frame_save_path = None
                     source_path_name = None
                     source_number += 1
                     self.display("New source, resetting stats")
-                    iteration_start = last_frame_check = time_synchronized()
                     source_frame_current = 0
                     running_classes = []
                     inst_detected_classes = []
@@ -528,7 +533,15 @@ class Detect:
                     font_scale = 0
                     video_mode = not dataset.mode == 'images'
                     source_frames_total = dataset.nframes
-                    source_calculated_fps = 0
+                    source_fps_calculated = 0
+                    font_scale_calculated = False
+
+                    # Added 0.5
+                    source_all_classes_names = []
+                    video_src_fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                    source_run_time = 0
+                    source_time_start = time_synchronized()
+                    source_detections = 0
 
             source_frame_prev = source_frame_current
             # Process detections
@@ -552,42 +565,53 @@ class Detect:
                 inst_detected_conf = []
                 inst_detected_classes = []
 
+
                 if detections:
+
+                    if (save_img or view_img) and display_stats:
+                        if not font_scale_calculated:
+                            font_scale = calc_text_size(im0)
+
                     # Rescale boxes from img_size to im0 size
                     det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
                     if verbose:
-                        self.display("%d detections in %.3fs" % (detect_count, inference_time))
+                        # self.display("%d detections in %.3fs" % (detect_count, inference_time))
+                        print(f"[yolor.detect] {source_frame_current}/{source_frames_total} {detect_count:d} detections")
                     # Write results
                     for *xyxy, conf, cls in det:
                         this_detect_count += 1
                         stats_detections += 1
+                        source_detections += 1
                         if save_txt:  # Write to file
                             xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                             txt_path = str(Path(output_path) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
                             with open(txt_path + '.txt', 'a') as f:
                                 f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
-                        if save_img or view_img:
+                        if source_data_checked and (save_img or view_img):
                             cls_int = int(cls)
                             inst_detected_conf.append(float(conf))
                             inst_detected_classes.append(cls_int)
                             if display_bounding_boxes:  # Add bbox to image
                                 # @todo: put in middle of bounding box
                                 if display_bounding_box_labels:
-                                    label = class_names[cls_int].title()
+                                    label = f"{class_names[cls_int].title()} {conf*100:.0f}%"
                                 else:
                                     label = None
-                                plot_one_box(xyxy, im0, label=label, color=colours[cls_int], line_thickness=2, text_color=[0,0,0], line_type=cv2.LINE_8)
+                                plot_one_box(xyxy, im0, label=label, color=colours[cls_int], line_thickness=2, text_color=[0,0,0], line_type=cv2.LINE_AA, font_scale=font_scale["text_font_scale"])
                             #if video_resize:
                                     # im0 = cv2.resize(im0, (video_resize_width, video_resize_height), fx=0, fy=0, interpolation=cv2.INTER_CUBIC)
                 else:
                     if verbose:
-                        print(f"{source_frame_current} No detections")
+                        print(f"[yolor.detect] {source_frame_current}/{source_frames_total} No detections")
 
 
                 # @todo: refactor!
                 # Print summary stats on image
-                if (save_img or view_img) and display_stats:
+                if (save_img or view_img) and display_stats and source_data_checked:
+                    if not font_scale_calculated:
+                        font_scale = calc_text_size(im0)
+
                     running_detect_count += detect_count
                     inst_detected_classes = list(set(inst_detected_classes))
                     inst_detected_classes.sort()
@@ -598,78 +622,51 @@ class Detect:
                     if len(new_running_classes) > len(running_classes):
                         running_classes = new_running_classes
                         running_classes.sort()
-                        running_class_names = [class_names[x] for x in running_classes]
+                        source_all_classes_names = [class_names[x] for x in running_classes]
 
                     inst_avg_conf = 0
                     if len(inst_detected_conf):
                         running_conf += inst_detected_conf
                         inst_avg_conf = np.average(inst_detected_conf)
-                        avg_conf = np.average(running_conf)
+                        source_avg_conf = np.average(running_conf)
                     
                     right_now = time_synchronized()
-                    source_run_time = (right_now - iteration_start)
+                    processing_time = (right_now - source_time_start)
+                    if source_frame_current >= 5:
+                        source_fps_calculated = source_frame_current / processing_time
+                    source_run_time = source_frame_current / video_src_fps
                     
-                    if source_frames_count >= 5:
-                        frame_time = time_synchronized()
-                        if last_frame_check is not None:
-                            frame_time = frame_time - last_frame_check
-                            if frame_time > 0:
-                                last_frame_check = time_synchronized()
-                                source_calculated_fps = source_frames_count / frame_time
-                                source_frames_count = 0
+                    add_text_heading(im0, "yolor-edge / Ewan Thompson / 2021", font_scale)
 
-                    if font_scale == 0:
-                        im_shape = im0.shape
-                        im_w = im_shape[1]
-
-                        font_scale = 0.45
-                        font_scale_h = 0.6
-
-                        if im_w < 1024:
-                            font_scale_h = 0.48
-                            font_scale = 0.45
-                        elif im_w <= 1280:
-                            font_scale_h = 0.6
-                            font_scale = 0.45
-                        elif im_w <= 1440:
-                            font_scale_h = 0.66
-                            font_scale = 0.45
-                        elif im_w <=  2048:
-                            font_scale_h = 0.66
-                            font_scale = 0.5
-                        else:
-                            font_scale_h = 0.75
-                            font_scale = 0.55
-
-
-                    plot_text_with_border(img=im0, starting_row = 1, starting_column=1, label = 'yolor-edge / E. Thompson / 2021', font_scale = font_scale_h, font_face = 2)
-                    stats_top = ""
-                    stats_top += "Inst.:\n"
+                    # plot_text_with_border(img=im0, starting_row = 1, starting_column=1, label = 'yolor-edge / Ewan Thompson / 2021', font_scale = font_scale_h, font_face = 2)
+                    stats_top = f"{stats_top_base}\n"
+                    stats_top += "Instantaneous:\n"
                     stats_top += f" Detections: {detect_count:d}\n"
-                    stats_top += f" Classes: {', '.join(inst_detected_names)}\n"
-                    stats_top += f" Avg. Conf: {inst_avg_conf*100:.2f}%\n"
-                    if source_calculated_fps > 0:
-                        stats_top += f" FPS: {source_calculated_fps:.2f}\n"
+                    stats_top += f" Objects: {', '.join(inst_detected_names)}\n"
+                    stats_top += f" Avg. Confidence: {inst_avg_conf*100:.2f}%\n"
+                    if source_fps_calculated > 0:
+                        stats_top += f" FPS: {source_fps_calculated:.2f}\n"
                     else:
-                        stats_top += f" FPS: (calc)\n"
-                    stats_top += f" Inf. Time: {(1E3 * inference_time):.3f}ms\n"
+                        stats_top += f" FPS: ...\n"
+                    stats_top += f" Inference Time: {(1E3 * inference_time):.3f}ms\n"
                     stats_top += f" NMS Time: {(1E3 * nms_time):.3f}ms\n"
-                    plot_text_with_border(img=im0, starting_row=4, starting_column=2, label = stats_top, font_scale = font_scale)
+                    # plot_text_with_border(img=im0, starting_row=4, starting_column=2, label = stats_top, font_scale = font_scale)
+                    add_text(im0, stats_top, font_scale, 3, 1)
 
+                    stats_bottom = f"Source: '{source_path_name}'\n"
 
-                    stats_bottom = ""                    
-                    if video_mode:
-                        source_string = f"Source: '{source_path_name}'"
-                        if source_video_w > 0:
-                            source_string += f" {source_video_w}x{source_video_h}"
-                        stats_bottom += source_string + "\n"
-                        stats_bottom += f"Frame: {source_frame_current}/{source_frames_total}\n"
-                        stats_bottom += f"Runtime: {source_run_time:.2f}s\n"
+                    stats_bottom += f" Size: {source_video_w}x{source_video_h}\n"
+                    stats_bottom += f" FPS: {video_src_fps}\n"
+                    stats_bottom += f" Frame: {source_frame_current}/{source_frames_total-1}\n"
+                    stats_bottom += f" Runtime: {source_run_time:.2f}s\n"
 
-                    stats_bottom += f"All Classes: {', '.join(running_class_names)}\n"
-                    stats_bottom += f"Avg. Conf: {avg_conf*100:.2f}\n"
+                    stats_bottom += f" Objects: {', '.join(source_all_classes_names)}\n"
+                    stats_bottom += f" Detections: {source_detections:d}\n"
+                    stats_bottom += f" Avg. Confidence: {source_avg_conf*100:.2f}%\n"
+                    stats_bottom += f" Processing Time: {processing_time:.2f}s\n"
                     stats_bottom += stats_bottom_base
-                    plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, label = stats_bottom, font_scale = font_scale)
+                    # plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, label = stats_bottom, font_scale = font_scale)
+                    add_text(im0, stats_bottom, font_scale, 1, 1, True)
 
                 # Display results
                 if view_img:

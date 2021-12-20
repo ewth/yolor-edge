@@ -51,7 +51,7 @@ def butter_lowpass_filtfilt(data, cutoff=1500, fs=50000, order=5):
     return filtfilt(b, a, data)  # forward-backward filter
 
 
-def plot_one_box(x, img, color=None, label=None, line_thickness=None, text_color=None, line_type=None):
+def plot_one_box(x, img, color=None, label=None, line_thickness=None, text_color=None, line_type=None, font_scale=None):
     # Plots one bounding box on image img
     if not line_type:
         line_type = cv2.LINE_AA
@@ -60,13 +60,102 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None, text_color
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=line_type)
     if label:
+        if not font_scale:
+            font_scale = tl/3.
         tf = max(tl - 1, 1)  # font thickness
-        t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+        t_size = cv2.getTextSize(label, 0, fontScale=font_scale, thickness=tf)[0]
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         if not text_color:
             text_color = [0, 0, 0]
         cv2.rectangle(img, c1, c2, color, -1, line_type)  # filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, text_color, thickness=tf, lineType=line_type)
+        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, font_scale, text_color, thickness=tf, lineType=line_type)
+
+def calc_text_size(img):
+    """
+    Calculate text sizing. Moved here so it's one-shot.
+    """
+    im_shape = img.shape
+    h = im_shape[0]
+    w = im_shape[1]
+    heading_font_scale = 0.665
+    factor = ((w/1920.0) + (h/1080.0)) / 2.0
+    if factor >= 1:
+        heading_font_scale = np.math.floor(factor)
+
+    text_font_scale = heading_font_scale / 2.0
+
+    heading_thickness = heading_font_scale * 2.25
+    heading_border = int(round(heading_thickness * 2.25))
+    heading_thickness = int(round(heading_thickness))
+
+
+    text_thickness = text_font_scale * 2.25
+    text_border = int(round(text_thickness * 2))
+    text_thickness = int(round(text_thickness))
+    
+    heading_line_height = int(round(50 * heading_font_scale))
+    text_line_height = int(round(50 * text_font_scale))
+
+    return {
+        'heading_font_scale': heading_font_scale,
+        'heading_thickness': heading_thickness,
+        'heading_border': heading_border,
+        'heading_line_height': heading_line_height,
+
+        'text_font_scale': text_font_scale,
+        'text_thickness': text_thickness,
+        'text_border': text_border,
+        'text_line_height': text_line_height,
+    }
+    
+def add_text(img, text: str, font_scaling: dict, starting_row = 1, starting_column = 1, start_bottom = False):
+    
+    font_face = 0
+    font_scale, line_height = font_scaling["text_font_scale"], font_scaling["text_line_height"]
+    text_thickness, border_thickness = font_scaling["text_thickness"], font_scaling["text_border"]
+
+    # Work out relative positioning
+    starting_x = line_height * starting_column
+    starting_y = line_height * starting_row
+
+    # A reference to the img (which is passed by reference) seems crucial for thread safety?
+    im_height = im_width = 0
+    im_shape = img.shape
+    # shape output is like: (2160, 3840, 3)
+    # so (h,w,d) (I'm assuming 3 is dimension)
+    if len(im_shape) > 1:
+        im_height = im_shape[0]
+        im_width = im_shape[1]
+
+    label_split = text.split("\n")
+
+    if start_bottom:
+        # If it's from the bottom, we need to know how many lines up to start at
+        starting_y = im_height - line_height * (len(label_split) + 1)
+
+    x = int(starting_x)
+
+    line_n = 0
+    for line in label_split:
+        y = int(starting_y + line_n * line_height)
+        org = (x, y)
+        line_n += 1
+
+        cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=(0,0,0), thickness=border_thickness, lineType=cv2.LINE_AA)
+        cv2.putText(img=img, text=line, org=org, fontFace=font_face, fontScale=font_scale, color=(255,255,255), thickness=text_thickness, lineType=cv2.LINE_AA)
+
+def add_text_heading(img, text: str, font_scaling: dict):
+    font_scale, line_height = font_scaling["heading_font_scale"], font_scaling["heading_line_height"]
+    text_thickness, border_thickness = font_scaling["heading_thickness"], font_scaling["heading_border"]
+    im_shape = img.shape
+    if len(im_shape) > 1:
+        im_height = im_shape[0]
+        im_width = im_shape[1]
+    font_face = 2
+    org = (10, line_height)
+    cv2.putText(img=img, text=text, org=org, fontFace=font_face, fontScale=font_scale, color=(0,0,0), thickness=border_thickness, lineType=cv2.LINE_AA)
+    cv2.putText(img=img, text=text, org=org, fontFace=font_face, fontScale=font_scale, color=(255,255,255), thickness=text_thickness, lineType=cv2.LINE_AA)
+
 
 def plot_text_with_border(
     img,
@@ -76,23 +165,23 @@ def plot_text_with_border(
     text_colour = (255,255,255),
     border_colour=(0,0,0),
     line_type=cv2.LINE_AA,
-    font_scale = 0.5,
-    line_height = 20,
+    font_scale = 0.665,
+    line_height = 1,
     font_face = 0,
     from_bottom = False,
     print_info = False
 ):
     
+
     text_thickness = font_scale * 2.25
     border_thickness = int(round(text_thickness * 2))
     text_thickness = int(round(text_thickness))
 
     
     # Work out relative positioning
-    starting_x = 10 * starting_column
-    starting_y = 20 * starting_row
+    starting_x = line_height * font_scale * starting_column
+    starting_y = line_height * font_scale * starting_row
 
-    # @todo: Work out starting point for scaling.
     # A reference to the img (which is passed by reference) seems crucial for thread safety?
     im_height = im_width = 0
     try:
@@ -105,13 +194,11 @@ def plot_text_with_border(
     except:
         print("Issue looking at img shape")
 
-
     label_split = label.split("\n")
 
     if from_bottom:
         # If it's from the bottom, we need to know how many lines up to start at
-        starting_y = im_height - line_height * (len(label_split) + starting_row + 1)
-        pass
+        starting_y = im_height - line_height * font_scale * (len(label_split) + starting_row + 1)
 
     x = int(starting_x)
     y = int(starting_y)
