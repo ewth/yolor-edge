@@ -10,7 +10,7 @@ class DetectRun:
     
     # Get jiggy with the configgy
     name = "detect-test"
-    version = "0.4"
+    version = "0.5"
 
     output_path_base = "/resources/inference/yolor-edge/output"
     output_append_run = True
@@ -30,6 +30,7 @@ class DetectRun:
     display_percentage_decimal = False
     mode_verbose = True
     save_video_frames = False
+    save_text = False
     save_images = True
     save_nth_frame = 5
     class_names_file = "/yolor-edge/data/coco-2017/coco.names"
@@ -94,8 +95,9 @@ class DetectRun:
             save_video_frames           = self.save_video_frames,           # save-frames
             save_nth_frame              = self.save_nth_frame,              # nth-frame
             mode_verbose                = self.mode_verbose,                # verbose
-            save_images=self.save_images,
-            append_run_id_to_files=False
+            save_text                   = self.save_text,
+            save_images                 = self.save_images,
+            append_run_id_to_files      = False
         )
         logger.debug(f"yolor.detect initialised with run {self._detect.run_name}")
         logger.debug("Running setup...")
