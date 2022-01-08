@@ -61,6 +61,7 @@ class Detect:
     display_bounding_box_confidence: bool
     
     display_stats: bool
+    display_extra_stats: bool
 
     display_percent_decimal = True
     mode_verbose = False
@@ -131,6 +132,7 @@ class Detect:
         display_bounding_box_confidence = True,
         display_percent_decimal = True,
         display_stats = False,
+        display_extra_stats = False,
 
         stats_top_append = [],
         stats_bottom_append = [],
@@ -187,6 +189,7 @@ class Detect:
 
         # Rendering image stuff
         self.display_stats = display_stats
+        self.display_extra_stats = display_extra_stats
         self.display_bounding_boxes = display_bounding_boxes
         self.display_bounding_box_labels = display_bounding_box_labels
         self.display_bounding_box_confidence = display_bounding_box_confidence
@@ -329,7 +332,7 @@ class Detect:
         self._have_init_device = True
         print(f"Device initialised: {self._device}")
 
-    def inference(self):
+    def run(self):
         """
         Run inference according to setup. The main event.
         """
@@ -368,6 +371,8 @@ class Detect:
 
         augment, agnostic_nms,  display_stats, save_frames, save_txt = \
             self.mode_augment, self.nms_is_agnostic, self.display_stats, self.save_video_frames, self.save_text
+
+        display_extra_stats = self.display_extra_stats
 
         display_bounding_boxes, display_bounding_box_labels = self.display_bounding_boxes, self.display_bounding_box_labels
         
@@ -426,27 +431,34 @@ class Detect:
         stats_images = 0
         stats_detections = 0
 
-        stats_top_base =  f"Run: {self.run_name}"
+
+        stats_top_base = ""
+        stats_bottom_base = ""
+
+        if display_stats:
+            stats_top_base =  f"Run: {self.run_name}"
+
         
-        stats_bottom_base = [
-            f"Algorithm: YOLOR; Model: '{self.model_name}'; Inf. Size {inference_size}px",
-            f"Thresh: Conf {conf_thres:.3f}; IoU {iou_thres:.3f}",
-            f"System: {self.system_name}; Device: {device}",
-        ]
+        if display_extra_stats:
+            stats_bottom_base = [
+                f"Algorithm: YOLOR; Model: '{self.model_name}'; Inf. Size {inference_size}px",
+                f"Thresh: Conf {conf_thres:.3f}; IoU {iou_thres:.3f}",
+                f"System: {self.system_name}; Device: {device}",
+            ]
 
-        if classes_restrict:
-            restricted_classes = []
-            for cls in classes_restrict:
-                # @todo: not sure why "if cls in names:"" doesn't work here?
-                if cls <= len(class_names):
-                    restricted_classes.append(class_names[cls])
-                else:
-                    restricted_classes.append(str(cls))
+            if classes_restrict:
+                restricted_classes = []
+                for cls in classes_restrict:
+                    # @todo: not sure why "if cls in names:"" doesn't work here?
+                    if cls <= len(class_names):
+                        restricted_classes.append(class_names[cls])
+                    else:
+                        restricted_classes.append(str(cls))
 
-            if len(restricted_classes):
-                stats_bottom_base.append("Only Classes:" + "; ".join(restricted_classes))
+                if len(restricted_classes):
+                    stats_bottom_base.append("Only Classes:" + "; ".join(restricted_classes))
 
-        stats_bottom_base = "\n".join(list(filter(None,stats_bottom_base)))
+            stats_bottom_base = "\n".join(list(filter(None,stats_bottom_base)))
 
         source_time_start = time.time()
 
@@ -568,9 +580,9 @@ class Detect:
 
                 if detections:
 
-                    if (save_img or view_img) and display_stats:
-                        if not font_scale_calculated:
-                            font_scale = calc_text_size(im0)
+                    if (save_img or view_img) and not font_scale_calculated:
+                        font_scale = calc_text_size(im0)
+                        font_scale_calculated = True
 
                     # Rescale boxes from img_size to im0 size
                     det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
@@ -611,6 +623,7 @@ class Detect:
                 if (save_img or view_img) and display_stats and source_data_checked:
                     if not font_scale_calculated:
                         font_scale = calc_text_size(im0)
+                        font_scale_calculated = True
 
                     running_detect_count += detect_count
                     if len(inst_detected_classes) > 0:
@@ -656,21 +669,22 @@ class Detect:
                     # plot_text_with_border(img=im0, starting_row=4, starting_column=2, label = stats_top, font_scale = font_scale)
                     add_text(im0, stats_top, font_scale, 3, 1)
 
-                    stats_bottom = f"{stats_top_base}\n"
-                    stats_bottom += f"Source: '{source_path_name}'\n"
+                    if display_extra_stats:
+                        stats_bottom = f"{stats_top_base}\n"
+                        stats_bottom += f"Source: '{source_path_name}'\n"
 
-                    stats_bottom += f" Size: {source_video_w}x{source_video_h}\n"
-                    stats_bottom += f" FPS: {video_src_fps:.3f}\n"
-                    stats_bottom += f" Frame: {source_frame_current}/{source_frames_total-1}\n"
-                    stats_bottom += f" Runtime: {source_run_time:.2f}s\n"
+                        stats_bottom += f" Size: {source_video_w}x{source_video_h}\n"
+                        stats_bottom += f" FPS: {video_src_fps:.3f}\n"
+                        stats_bottom += f" Frame: {source_frame_current}/{source_frames_total-1}\n"
+                        stats_bottom += f" Runtime: {source_run_time:.2f}s\n"
 
-                    stats_bottom += f" Objects: {', '.join(source_all_classes_names)}\n"
-                    # stats_bottom += f" Frames w/ Detections: {source_detections:d}\n"
-                    stats_bottom += f" Avg. Confidence: {source_avg_conf*100:.2f}%\n"
-                    stats_bottom += f" Processing Time: {processing_time:.2f}s\n"
-                    stats_bottom += stats_bottom_base
-                    # plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, label = stats_bottom, font_scale = font_scale)
-                    add_text(im0, stats_bottom, font_scale, 1, 1, True)
+                        stats_bottom += f" Objects: {', '.join(source_all_classes_names)}\n"
+                        # stats_bottom += f" Frames w/ Detections: {source_detections:d}\n"
+                        stats_bottom += f" Avg. Confidence: {source_avg_conf*100:.2f}%\n"
+                        stats_bottom += f" Processing Time: {processing_time:.2f}s\n"
+                        stats_bottom += stats_bottom_base
+                        # plot_text_with_border(img=im0, starting_row=2, starting_column=1, from_bottom = True, label = stats_bottom, font_scale = font_scale)
+                        add_text(im0, stats_bottom, font_scale, 1, 1, True)
 
                 # Display results
                 if view_img:
