@@ -25,6 +25,7 @@ class DetectRun:
     iou_threshold = 0.5
 
     display_stats = True
+    display_extra_stats = False
     display_bounding_boxes = True
     display_bounding_box_labels = True
     display_percentage_decimal = False
@@ -90,6 +91,7 @@ class DetectRun:
             class_names_file            = self.class_names_file,            # names
             display_bounding_boxes      = self.display_bounding_boxes,      # display-bb
             display_stats               = self.display_stats,               # display-info
+            display_extra_stats         = self.display_extra_stats,
             display_bounding_box_labels = self.display_bounding_box_labels,
             display_percent_decimal     = self.display_percentage_decimal,
             save_video_frames           = self.save_video_frames,           # save-frames
