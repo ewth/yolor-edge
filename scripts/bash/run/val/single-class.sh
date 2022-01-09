@@ -16,19 +16,6 @@ TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
 
 EXTRA_ARGS="--single-cls"
 
-if [[ ! -z "${DEEPRESCUE}" ]]; then
-    if [[ "${DEEPRESCUE}" == "1" ]]; then
-        TEST_NAMES="/resources/datasets/deeprescue/v1/deeprescue.names"
-        TEST_DATA="/resources/datasets/deeprescue/v1/deeprescue.yaml"
-    fi
-    if [[ "${DEEPRESCUE}" == "2" ]]; then
-        TEST_NAMES="/resources/datasets/deeprescue/v2/deeprescue.names"
-        TEST_DATA="/resources/datasets/deeprescue/v2/data.yaml"
-    fi
-    EXTRA_ARGS="${EXTRA_ARGS} --single-cls"
-    DATASET="deeprescue"
-fi
-
 if [[ ! -z "${BATCH_SIZE}" ]]; then
     EXTRA_ARGS="${EXTRA_ARGS} --batch-size ${BATCH_SIZE}"
 fi
