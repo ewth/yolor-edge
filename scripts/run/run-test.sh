@@ -1,18 +1,23 @@
 #!/bin/bash
 
+# Update apt packages
+sudo apt update
+# Install tmux
+sudo apt install tmux
+
+# Launch tmux
+tmux
+# (run commands inside tmux)
+# Detach from session: Ctrl+B, D
+# Re-attach to session by running:z
+tmux attach
+# Re-attach to a specific session
+
+
 
 # The test.py script reverts to these defaults too
-if [[ -z "${TEST_NAMES}" ]]; then
-    TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
-fi
-if [[ -z "${TEST_DATA}" ]]; then
-    TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
-fi
-
-if [[ -z "${DATASET}" ]]; then
-    DATASET="COCO-2017"
-fi
-
+TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
+TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
 
 EXTRA_ARGS=""
 
@@ -35,11 +40,19 @@ if [[ -z "${YOLOR_MODEL}" ]]; then
     YOLOR_MODEL=${YOLOR_CFG}
 fi
 if [[ -z "${PROJECT_NAME}" ]]; then
-    PROJECT_NAME="${YOLOR_MODEL}_val"
+    PROJECT_NAME="${YOLOR_MODEL}_test"
 fi
 
 
-echo "Starting validation run of ${YOLOR_MODEL} on ${DATASET} data"
+# Try:
+# SET_TAG="p-model-compare"
+# YOLOR_CFG="yolor_p6"
+# YOLOR_MODEL="yolor-p6"
+# PROJECT_NAME="yolor-p6-p_val"
+# 
+# YOLOR_CFG=yolor_p6 YOLOR_MODEL=yolor_p6 WANDB_TAGS="test-run" PROJECT_NAME="yolor_p6_test" IMAGE_SIZE=128 BATCH_SIZE=24 ./run-test.sh
+
+echo "Starting test run of ${YOLOR_MODEL} on ${DATASET} data"
 if [[ ! -z "${EXTRA_ARGS}" ]]; then
     echo " with extra args ${EXTRA_ARGS}"
 fi
@@ -60,10 +73,10 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-# Normal val run
+# Normal run
 SHM_SIZE=${SHM_SIZE} WANDB_TAGS=${WANDB_TAGS} python3 /yolor-edge/yolor/test.py \
     ${EXTRA_ARGS} --verbose \
-    --save-txt --save-conf --save-json \
+    --task test \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
     --weights /resources/weights/yolor/${YOLOR_MODEL}.pt \
     --name ${PROJECT_NAME}

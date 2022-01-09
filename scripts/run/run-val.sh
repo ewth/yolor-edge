@@ -1,9 +1,18 @@
 #!/bin/bash
 
-DATASET="COCO-2017"
+
 # The test.py script reverts to these defaults too
-TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
-TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
+if [[ -z "${TEST_NAMES}" ]]; then
+    TEST_NAMES="/yolor-edge/data/coco-2017/coco.names"
+fi
+if [[ -z "${TEST_DATA}" ]]; then
+    TEST_DATA="/yolor-edge/data/coco-2017/coco.yaml"
+fi
+
+if [[ -z "${DATASET}" ]]; then
+    DATASET="COCO-2017"
+fi
+
 
 EXTRA_ARGS=""
 
@@ -26,19 +35,11 @@ if [[ -z "${YOLOR_MODEL}" ]]; then
     YOLOR_MODEL=${YOLOR_CFG}
 fi
 if [[ -z "${PROJECT_NAME}" ]]; then
-    PROJECT_NAME="${YOLOR_MODEL}_test"
+    PROJECT_NAME="${YOLOR_MODEL}_val"
 fi
 
 
-# Try:
-# SET_TAG="p-model-compare"
-# YOLOR_CFG="yolor_p6"
-# YOLOR_MODEL="yolor-p6"
-# PROJECT_NAME="yolor-p6-p_val"
-# 
-# YOLOR_CFG=yolor_p6 YOLOR_MODEL=yolor_p6 WANDB_TAGS="test-run" PROJECT_NAME="yolor_p6_test" IMAGE_SIZE=128 BATCH_SIZE=24 ./run-test.sh
-
-echo "Starting test run of ${YOLOR_MODEL} on ${DATASET} data"
+echo "Starting validation run of ${YOLOR_MODEL} on ${DATASET} data"
 if [[ ! -z "${EXTRA_ARGS}" ]]; then
     echo " with extra args ${EXTRA_ARGS}"
 fi
@@ -59,10 +60,10 @@ else
     SHM_SIZE=$((${SHM_SIZE::-1} / ${SHM_DIV}))
 fi
 
-# Normal run
-SHM_SIZE=${SHM_SIZE} WANDB_TAGS=${WANDB_TAGS} python3 /yolor-edge/yolor/test.py \
+# Normal val run
+SHM_SIZE=${SHM_SIZE} WANDB_TAGS=${WANDB_TAGS} python3 /yolor-edge/test.py \
     ${EXTRA_ARGS} --verbose \
-    --task test --save-txt --save-conf --save-json \
+    --save-txt --save-conf --save-json \
     --cfg /yolor-edge/yolor/cfg/${YOLOR_CFG}.cfg \
     --weights /resources/weights/yolor/${YOLOR_MODEL}.pt \
     --name ${PROJECT_NAME}
