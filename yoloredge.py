@@ -1,7 +1,7 @@
 import uuid
 import logging
 from pathlib import Path
-import yolor.detect
+
 
 class YolorEdge:
     """
@@ -10,9 +10,9 @@ class YolorEdge:
     
     # Get jiggy with the configgy
 
-    # Default task is detect, unless specified otherwise
-    task = "detect"
-    name = f"{task}-test"
+    # Default task, unless specified otherwise
+    task = "val"
+    name = f"{task}-run"
     version = "0.6"
 
     output_path_base = f"/resources/inference/yolor-edge/{name}-output"
@@ -81,6 +81,8 @@ class YolorEdge:
 
         if self.task == "detect":
             self._task = self.init_detect(output_path)
+        elif self.task == "val":
+            self._task = self.init_val(output_path)
 
         if self._task is None:
             print("No task performed.")
@@ -92,9 +94,37 @@ class YolorEdge:
         self._task.setup()
         logger.debug("Done.")
 
-        
+    def init_val(self, output_path):
+        import yolor.validate
+        return yolor.validate.Validate(
+            run_name                    = self._run_name,
+            run_id = self._run_id,
+            #                                                               Old Arg
+            output_path                 = output_path,                      # output
+            source_path                 = self.source_path,                 # source
+            target_device               = self.target_device,               # device
+            model_weights               = self.yolor_weights,               # weights
+            model_config                = self.yolor_config,                # cfg
+            inference_size              = self.inference_size,              # img-size
+            confidence_threshold        = self.confidence_threshold,        # conf-thres
+            iou_threshold               = self.iou_threshold,               # iou-thres
+            class_names_file            = self.class_names_file,            # names
+            display_bounding_boxes      = self.display_bounding_boxes,      # display-bb
+            display_stats               = self.display_stats,               # display-info
+            display_extra_stats         = self.display_extra_stats,
+            display_bounding_box_labels = self.display_bounding_box_labels,
+            display_percent_decimal     = self.display_percentage_decimal,
+            save_video_frames           = self.save_video_frames,           # save-frames
+            save_nth_frame              = self.save_nth_frame,              # nth-frame
+            mode_verbose                = self.mode_verbose,                # verbose
+            save_text                   = self.save_text,
+            save_images                 = self.save_images,
+            append_run_id_to_files      = False
+        )
 
     def init_detect(self, output_path):
+        import yolor.detect
+        
         return yolor.detect.Detect(
             run_name                    = self._run_name,
             run_id = self._run_id,
@@ -132,7 +162,7 @@ class YolorEdge:
                 log_path.mkdir(parents=True, exist_ok=True)
 
             log_file = log_path.joinpath(f"run-{self._run_id}.log")
-            logger = logging.getLogger(f"yolor-edge.detectrun")
+            logger = logging.getLogger(f"yolor-edge")
 
             # Damn the logging cookbook is cool
             # https://docs.python.org/3/howto/logging-cookbook.html#logging-cookbook
@@ -171,6 +201,6 @@ class YolorEdge:
 
 if __name__ == "__main__":
     # @todo: may need to thread lock etc here
-    det = DetectRun()
-    det.go()
+    ye = YolorEdge()
+    ye.go()
 
