@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from models.common import Conv, DWConv
+from yolor.models.common import Conv, DWConv
 from yolor.utils.google_utils import attempt_download
 
 
