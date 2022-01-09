@@ -1,9 +1,9 @@
 # train and val datasets (image directory or *.txt file with image paths)
-train: /resources/datasets/cocos2017/labels/train2017.txt  # 118k images
-val: /resources/datasets/cocos2017/labels/val2017.txt  # 5k images
-test: /resources/datasets/cocos2017/labels/test-dev2017.txt  # 20k images for submission to https://competitions.codalab.org/competitions/20794
+train: /resources/datasets/coco-2017/labels/train2017.txt  # 118k images
+val: /resources/datasets/coco-2017/labels/val2017.txt  # 5k images
+test: /resources/datasets/coco-2017/labels/test-dev2017.txt  # 20k images for submission to https://competitions.codalab.org/competitions/20794
 
-annotations: /resources/datasets/cocos2017/annotations/
+annotations: /resources/datasets/coco-2017/annotations/
 
 # number of classes
 nc: 80
