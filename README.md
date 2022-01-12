@@ -1,3 +1,7 @@
+# Thesis Code
+
+For code at the time of thesis submission, please [click here](https://github.com/ewth/yolor-edge/releases/tag/thesis).
+
 # yolor-edge
 
 This forms part of a larger project examining how artificial intelligence can assist in urban search and rescue situations.
