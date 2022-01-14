@@ -1,12 +1,12 @@
-# Thesis Code
-
-For code at the time of thesis submission, please [click here](https://github.com/ewth/yolor-edge/releases/tag/thesis).
-
 # yolor-edge
 
-This forms part of a larger project examining how artificial intelligence can assist in urban search and rescue situations.
+This forms part of an Electrical Engineering Honours Thesis, seeking to evaluate state-of-the-art object detection operating on edge devices, for looking at how modern artificial intelligence can assist in urban search and rescue.
 
 This particular aspect of the project focuses on implementing and running YOLOR on an [NVIDIA Jetson Xavier NX](https://developer.nvidia.com/embedded/jetson-xavier-nx-devkit), evaluating its suitability for locating people using computer vision in collapsed building disasters. Being signficantly cluttered, dynamic and unpredictable environments with highly variable lighting, such disaster sites have historically proven difficult for autonomous robotics to operate in.
+
+## Thesis Code
+
+For code at the time of thesis submission, please [click here](https://github.com/ewth/yolor-edge/releases/tag/thesis).
 
 ## YOLOR
 
