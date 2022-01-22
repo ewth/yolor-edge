@@ -1,6 +1,6 @@
 # yolor-edge
 
-This forms part of an Electrical Engineering Honours Thesis, seeking to evaluate state-of-the-art object detection operating on edge devices, for looking at how modern artificial intelligence can assist in urban search and rescue.
+This forms part of an Electrical Engineering (Instrumentation and Control / Industrial Computer Systems) Honours Thesis, seeking to evaluate state-of-the-art object detection operating on edge devices, for looking at how modern artificial intelligence can assist in urban search and rescue.
 
 This particular aspect of the project focuses on implementing and running YOLOR on an [NVIDIA Jetson Xavier NX](https://developer.nvidia.com/embedded/jetson-xavier-nx-devkit), evaluating its suitability for locating people using computer vision in collapsed building disasters. Being signficantly cluttered, dynamic and unpredictable environments with highly variable lighting, such disaster sites have historically proven difficult for autonomous robotics to operate in.
 
