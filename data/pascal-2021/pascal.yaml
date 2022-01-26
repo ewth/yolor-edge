@@ -1,0 +1,23 @@
+names:
+- person
+- aeroplane
+- tvmonitor
+- train
+- boat
+- dog
+- chair
+- bird
+- bicycle
+- bottle
+- sheep
+- diningtable
+- horse
+- motorbike
+- sofa
+- cow
+- car
+- cat
+- bus
+- pottedplant
+nc: 20
+val: /resources/datasets/PascalVOC/pascalvoc2021_yolor/images/val/
