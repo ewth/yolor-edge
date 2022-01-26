@@ -1,14 +1,18 @@
 # yolor-edge
 
-An implementation of [YOLOR](https://github.com/WongKinYiu/yolor) running successfully on the [NVIDIA Jetson Xavier NX](https://developer.nvidia.com/embedded/jetson-xavier-nx-devkit).
+An implementation of [YOLOR](https://github.com/WongKinYiu/yolor) running successfully on the [NVIDIA Jetson Xavier NX](https://developer.nvidia.com/embedded/jetson-xavier-nx-devkit) edge computing device.
 
 ## YOLOR
 
-[You Only Learn One Representation: Unified Network for Multiple Tasks](https://arxiv.org/abs/2105.04206) (YOLOR) is a novel, state-of-the-art object detection algorithm producing world-leading performance results, published in May 2021.
+[You Only Learn One Representation](https://arxiv.org/abs/2105.04206) (YOLOR) is a novel, state-of-the-art object detection algorithm published in May 2021, and producing [world-leading performance results](https://paperswithcode.com/sota/real-time-object-detection-on-coco).
 
 All credit goes to:
 - Chien-Yao Wang, I-Hau Yeh and Hong-Yuan Mark Liao for their groundbreaking paper, [You Only Learn One Representation: Unified Network for Multiple Tasks](https://arxiv.org/abs/2105.04206).
-- Kin-Yiu, Wong for his original implementation of YOLOR in PyTorch, on which this work is built: [YOLOR](https://github.com/WongKinYiu/yolor)
+- Kin-Yiu, Wong for his implementation of [YOLOR in PyTorch](https://github.com/WongKinYiu/yolor) which accompanied the paper above, and on which this work is built.
+
+## This Code
+
+YOLOR was published with an official implementation built on PyTorch ([see below](##YOLOR)), built and tested on a PC. This code represents a replication of the implementation for running on an edge device, with some additions for flair.
 
 ## Thesis
 
@@ -24,4 +28,4 @@ The thesis this repository is attached to is slated for publication in February 
 
 ## Commit History
 
-Unfortunately, a fair bit of burning the midnight oil and running purely on caffeine lead to some kafuffles around commit history in this repo, namely due to tired eyes mishmashing Git submodules.
+Unfortunately, a fair bit of burning the midnight oil and running purely on caffeine led to some kafuffles around commit history in this repo, namely due to tired eyes mishmashing Git submodules.
