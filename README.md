@@ -20,7 +20,7 @@ This code forms part of a B.Eng(Hons) (Instrumentation and Control / Industrial 
 
 Releases at specific points are available below.
 
-- [Thesis Draft](https://github.com/ewth/yolor-edge/releases/tag/thesis-draft).
+- [Thesis](https://github.com/ewth/yolor-edge/releases/tag/thesis).
 
 ## Further Details
 
