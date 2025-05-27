@@ -12,6 +12,48 @@ At the time (2021), YOLOR was one of the state-of-the-art real-time object detec
 
 Here, YOLOR is successfully implemented to run on an edge device, achieving real-time object detection.
 
+## Usage
+
+The following occurs on the NVIDIA Jetson Xavier NX.
+
+```shell
+# Clone the repo
+git clone https://github.com/ewth/yolor-edge.git
+
+# Change into the repo directory
+cd yolor-edge
+
+# Build the Docker image
+cd docker
+./build.sh
+
+# Run the Docker container
+./run.sh
+```
+
+Any time you want to run the Docker container, execute `run.sh` from the `docker` directory.
+
+From within the Docker container:
+
+```shell
+# Run yolor-edge
+python3 yoloredge.py
+```
+
+### Bash Scripts
+
+If the Bash scripts will not run, try adding the `+x` permission:
+
+```shell
+chmod +x ./run.sh
+```
+
+Alternatively, use `bash` to execute directly:
+
+```shell
+bash run.sh
+```
+
 ## YOLOR
 
 [You Only Learn One Representation](https://arxiv.org/abs/2105.04206) (YOLOR) is a novel, state-of-the-art object detection algorithm published in May 2021, and producing [world-leading performance results](https://paperswithcode.com/sota/real-time-object-detection-on-coco).
